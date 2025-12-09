@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon Connect Agent Interface</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- CCP Container -->
+        <div class="ccp-container">
+            <div id="ccp"></div>
+        </div>
+
+        <!-- Agent Dashboard -->
+        <div class="dashboard">
+            <div class="header">
+                <h1>Agent Dashboard</h1>
+                <div id="agent-status" class="status-badge">Offline</div>
+            </div>
+
+            <!-- Active Contacts -->
+            <div class="section">
+                <h2>Active Contacts</h2>
+                <div id="active-contacts" class="contacts-list">
+                    <p class="empty-state">No active contacts</p>
+                </div>
+            </div>
+
+            <!-- Contact Details -->
+            <div class="section">
+                <h2>Contact Details</h2>
+                <div id="contact-details" class="details-panel">
+                    <p class="empty-state">Select a contact to view details</p>
+                </div>
+            </div>
+
+            <!-- Logs -->
+            <div class="section">
+                <h2>Activity Log</h2>
+                <div id="activity-log" class="log-panel"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main application -->
+    <script type="module" src="./main.js"></script>
+</body>
+</html>

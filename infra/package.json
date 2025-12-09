@@ -1,0 +1,20 @@
+{
+  "name": "connect-multimodal-infra",
+  "version": "1.0.0",
+  "description": "CDK infrastructure for Amazon Connect Multi-Modal Demo",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.100.0",
+    "constructs": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "aws-cdk": "^2.100.0"
+  }
+}

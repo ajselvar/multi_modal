@@ -1,0 +1,9 @@
+{
+  "name": "chat-routing-lambda",
+  "version": "1.0.0",
+  "description": "Lambda function for chat routing based on related voice contact",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-connect": "^3.0.0"
+  }
+}

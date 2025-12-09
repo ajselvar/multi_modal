@@ -1,0 +1,337 @@
+// Amazon Connect Agent Interface
+// Uses Connect Streams JS to manage agent state and auto-accept related chat contacts
+
+import 'amazon-connect-streams';
+import { config } from './config.js';
+
+const CONFIG = config;
+
+// Application state
+const AppState = {
+    agent: null,
+    contacts: new Map(),
+    selectedContactId: null,
+    voiceContactIds: new Set()
+};
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+    log('Initializing Amazon Connect Agent Interface...', 'info');
+    initializeCCP();
+});
+
+// Initialize Connect CCP
+function initializeCCP() {
+    try {
+        connect.core.initCCP(document.getElementById('ccp'), {
+            ccpUrl: CONFIG.ccpUrl,
+            region: CONFIG.region,
+            loginPopup: true,
+            loginPopupAutoClose: true,
+            softphone: {
+                allowFramedSoftphone: true
+            }
+        });
+
+        log('CCP initialization started', 'info');
+        setupEventHandlers();
+    } catch (error) {
+        log(`Failed to initialize CCP: ${error.message}`, 'error');
+    }
+}
+
+// Setup Connect Streams event handlers
+function setupEventHandlers() {
+    // Agent events
+    connect.agent(agent => {
+        AppState.agent = agent;
+        log(`Agent initialized: ${agent.getName()}`, 'success');
+        
+        agent.onRefresh(handleAgentRefresh);
+        agent.onStateChange(handleAgentStateChange);
+        agent.onRoutable(handleAgentRoutable);
+        agent.onNotRoutable(handleAgentNotRoutable);
+        agent.onOffline(handleAgentOffline);
+    });
+
+    // Contact events
+    connect.contact(contact => {
+        log(`Contact event: ${contact.getContactId()}`, 'info');
+        handleContactEvent(contact);
+    });
+}
+
+// Handle agent refresh
+function handleAgentRefresh(agent) {
+    log('Agent state refreshed', 'info');
+    updateAgentStatus(agent);
+}
+
+// Handle agent state change
+function handleAgentStateChange(agentStateChange) {
+    const newState = agentStateChange.newState;
+    log(`Agent state changed to: ${newState}`, 'info');
+    updateAgentStatus(AppState.agent);
+}
+
+// Handle agent routable
+function handleAgentRoutable(agent) {
+    log('Agent is now routable', 'success');
+    updateAgentStatus(agent);
+}
+
+// Handle agent not routable
+function handleAgentNotRoutable(agent) {
+    log('Agent is not routable', 'warning');
+    updateAgentStatus(agent);
+}
+
+// Handle agent offline
+function handleAgentOffline(agent) {
+    log('Agent went offline', 'warning');
+    updateAgentStatus(agent);
+}
+
+// Update agent status display
+function updateAgentStatus(agent) {
+    const statusElement = document.getElementById('agent-status');
+    const agentState = agent.getState();
+    const stateName = agentState.name;
+    
+    statusElement.textContent = stateName;
+    statusElement.className = 'status-badge';
+    
+    if (stateName === 'Available') {
+        statusElement.classList.add('available');
+    } else if (stateName === 'Offline') {
+        statusElement.classList.add('offline');
+    } else {
+        statusElement.classList.add('busy');
+    }
+}
+
+// Handle contact events
+function handleContactEvent(contact) {
+    const contactId = contact.getContactId();
+    
+    // Store contact
+    AppState.contacts.set(contactId, contact);
+    
+    // Track voice contacts
+    if (contact.getType() === connect.ContactType.VOICE) {
+        AppState.voiceContactIds.add(contactId);
+    }
+    
+    // Setup contact event handlers
+    contact.onRefresh(c => handleContactRefresh(c));
+    contact.onIncoming(c => handleContactIncoming(c));
+    contact.onAccepted(c => handleContactAccepted(c));
+    contact.onConnected(c => handleContactConnected(c));
+    contact.onEnded(c => handleContactEnded(c));
+    contact.onDestroy(c => handleContactDestroy(c));
+    
+    // Update UI
+    updateContactsList();
+}
+
+// Handle contact refresh
+function handleContactRefresh(contact) {
+    log(`Contact refreshed: ${contact.getContactId()}`, 'info');
+    updateContactsList();
+    updateContactDetails();
+}
+
+// Handle incoming contact
+function handleContactIncoming(contact) {
+    const contactId = contact.getContactId();
+    const contactType = contact.getType();
+    
+    log(`Incoming ${contactType} contact: ${contactId}`, 'info');
+    
+    // Check if this is a chat contact with a related voice contact
+    if (contactType === connect.ContactType.CHAT) {
+        checkAndAutoAcceptChat(contact);
+    }
+    
+    updateContactsList();
+}
+
+// Check if chat should be auto-accepted
+async function checkAndAutoAcceptChat(contact) {
+    try {
+        const relatedContactId = contact.getRelatedContactId();
+        
+        log(`Chat contact relatedContactId: ${relatedContactId}`, 'info');
+        
+        if (relatedContactId) {
+            log(`Chat has relatedContactId: ${relatedContactId}`, 'info');
+            
+            // Check if we have an active voice contact with this ID
+            if (AppState.voiceContactIds.has(relatedContactId)) {
+                log(`Auto-accepting chat related to active voice contact`, 'success');
+                
+                // Auto-accept the chat
+                contact.accept({
+                    success: () => {
+                        log(`Successfully auto-accepted chat contact`, 'success');
+                    },
+                    failure: (error) => {
+                        log(`Failed to auto-accept chat: ${error}`, 'error');
+                    }
+                });
+            } else {
+                log(`Related voice contact ${relatedContactId} not found in active contacts`, 'warning');
+            }
+        } else {
+            log(`Chat contact has no relatedContactId - manual accept required`, 'info');
+        }
+    } catch (error) {
+        log(`Error checking chat auto-accept: ${error.message}`, 'error');
+    }
+}
+
+// Handle contact accepted
+function handleContactAccepted(contact) {
+    log(`Contact accepted: ${contact.getContactId()}`, 'success');
+    updateContactsList();
+}
+
+// Handle contact connected
+function handleContactConnected(contact) {
+    log(`Contact connected: ${contact.getContactId()}`, 'success');
+    updateContactsList();
+}
+
+// Handle contact ended
+function handleContactEnded(contact) {
+    const contactId = contact.getContactId();
+    log(`Contact ended: ${contactId}`, 'info');
+    
+    // Remove from voice contacts tracking
+    AppState.voiceContactIds.delete(contactId);
+    
+    updateContactsList();
+}
+
+// Handle contact destroy
+function handleContactDestroy(contact) {
+    const contactId = contact.getContactId();
+    log(`Contact destroyed: ${contactId}`, 'info');
+    
+    // Remove from state
+    AppState.contacts.delete(contactId);
+    AppState.voiceContactIds.delete(contactId);
+    
+    // Clear selection if this was selected
+    if (AppState.selectedContactId === contactId) {
+        AppState.selectedContactId = null;
+    }
+    
+    updateContactsList();
+    updateContactDetails();
+}
+
+// Update contacts list UI
+function updateContactsList() {
+    const container = document.getElementById('active-contacts');
+    const contacts = Array.from(AppState.contacts.values());
+    
+    if (contacts.length === 0) {
+        container.innerHTML = '<p class="empty-state">No active contacts</p>';
+        return;
+    }
+    
+    container.innerHTML = contacts.map(contact => {
+        const contactId = contact.getContactId();
+        const type = contact.getType();
+        const state = contact.getStatus().type;
+        const isSelected = contactId === AppState.selectedContactId;
+        
+        return `
+            <div class="contact-card ${isSelected ? 'selected' : ''}" onclick="selectContact('${contactId}')">
+                <div class="contact-header">
+                    <span class="contact-type ${type.toLowerCase()}">${type}</span>
+                    <span class="contact-state">${state}</span>
+                </div>
+                <div class="contact-id">${contactId}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Select a contact
+window.selectContact = function(contactId) {
+    AppState.selectedContactId = contactId;
+    updateContactsList();
+    updateContactDetails();
+};
+
+// Update contact details panel
+function updateContactDetails() {
+    const container = document.getElementById('contact-details');
+    
+    if (!AppState.selectedContactId) {
+        container.innerHTML = '<p class="empty-state">Select a contact to view details</p>';
+        return;
+    }
+    
+    const contact = AppState.contacts.get(AppState.selectedContactId);
+    if (!contact) {
+        container.innerHTML = '<p class="empty-state">Contact not found</p>';
+        return;
+    }
+    
+    const attributes = contact.getAttributes();
+    const relatedContactId = attributes.relatedContactId?.value;
+    
+    container.innerHTML = `
+        <div class="detail-row">
+            <div class="detail-label">Contact ID:</div>
+            <div class="detail-value">${contact.getContactId()}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Type:</div>
+            <div class="detail-value">${contact.getType()}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">State:</div>
+            <div class="detail-value">${contact.getStatus().type}</div>
+        </div>
+        <div class="detail-row">
+            <div class="detail-label">Initial Contact ID:</div>
+            <div class="detail-value">${contact.getInitialContactId() || 'N/A'}</div>
+        </div>
+        ${relatedContactId ? `
+        <div class="detail-row">
+            <div class="detail-label">Related Contact:</div>
+            <div class="detail-value highlight">${relatedContactId}</div>
+        </div>
+        ` : ''}
+        <div class="detail-row">
+            <div class="detail-label">Queue:</div>
+            <div class="detail-value">${contact.getQueue()?.name || 'N/A'}</div>
+        </div>
+    `;
+}
+
+// Log activity
+function log(message, type = 'info') {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    
+    const logPanel = document.getElementById('activity-log');
+    const timestamp = new Date().toLocaleTimeString();
+    
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    entry.innerHTML = `
+        <span class="log-time">${timestamp}</span>
+        <span class="log-message">${message}</span>
+    `;
+    
+    logPanel.insertBefore(entry, logPanel.firstChild);
+    
+    // Keep only last 50 entries
+    while (logPanel.children.length > 50) {
+        logPanel.removeChild(logPanel.lastChild);
+    }
+}
