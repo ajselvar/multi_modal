@@ -41,7 +41,9 @@ All configuration is centralized in `config.json` at the project root:
   },
   "connect": {
     "instanceId": "your-instance-id",
-    "contactFlowId": "your-contact-flow-id"
+    "contactFlowId": "your-contact-flow-id",
+    "instanceAlias": "instance-alias",
+    "ccpUrl": "ccp-url",
   },
   "deployment": {
     "stackName": "ConnectMultimodalStack",
