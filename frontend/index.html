@@ -4,88 +4,331 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amazon Connect Multi-Modal Demo</title>
+    <title>Hyundai USA - New & Used Cars, Trucks & SUVs</title>
     <link rel="stylesheet" href="styles.css">
+    <script>
+        // Polyfill for Node.js globals in browser environment
+        if (typeof global === 'undefined') {
+            window.global = globalThis;
+        }
+        if (typeof process === 'undefined') {
+            window.process = { env: {} };
+        }
+    </script>
 </head>
 
 <body>
     <div id="error-message" class="error"></div>
 
-    <div class="chat-container">
-        <!-- Chat Header -->
-        <div class="chat-header">
-            <div class="header-info">
-                <h2>Amazon Connect Support</h2>
-                <div id="connection-status" class="connection-status">Not connected</div>
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav">
+            <div class="nav-brand">
+                <svg width="120" height="40" viewBox="0 0 120 40" fill="currentColor">
+                    <path d="M10 8h20v4H10zm0 8h20v4H10zm0 8h20v4H10z"/>
+                    <text x="40" y="25" font-family="Arial, sans-serif" font-size="18" font-weight="bold">HYUNDAI</text>
+                </svg>
             </div>
-            <div class="header-actions">
-                <!-- Start Call Button (shown when no call active) -->
-                <button id="call-btn" class="icon-btn" title="Start Voice Call">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path
-                            d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z">
-                        </path>
+            <div class="nav-links">
+                <a href="#vehicles">Vehicles</a>
+                <a href="#shopping">Shopping Tools</a>
+                <a href="#owners">Owners</a>
+                <a href="#about">About</a>
+                <a href="#support">Support</a>
+            </div>
+            <div class="nav-actions">
+                <button class="nav-btn">Build & Price</button>
+                <button class="nav-btn secondary">Find a Dealer</button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1>The All-New 2024 TUCSON</h1>
+                <p>Bold design meets advanced technology. Experience the future of driving with Hyundai's most innovative SUV yet.</p>
+                <div class="hero-actions">
+                    <button class="btn-primary">Build & Price</button>
+                    <button class="btn-secondary">Learn More</button>
+                </div>
+            </div>
+            <div class="hero-image">
+                <img src="https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80" 
+                     alt="2024 Hyundai TUCSON" 
+                     class="hero-car-image"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="car-placeholder" style="display: none;">
+                    <svg width="600" height="300" viewBox="0 0 600 300" fill="none">
+                        <rect width="600" height="300" fill="#f0f0f0" rx="8"/>
+                        <path d="M50 200 L100 150 L500 150 L550 200 L50 200Z" fill="#2c5aa0"/>
+                        <circle cx="150" cy="220" r="25" fill="#333"/>
+                        <circle cx="450" cy="220" r="25" fill="#333"/>
+                        <text x="300" y="160" text-anchor="middle" font-family="Arial" font-size="24" fill="#666">2024 TUCSON</text>
                     </svg>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <div class="container">
+            <h2>Why Choose Hyundai</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>10-Year Warranty</h3>
+                    <p>America's Best Warranty with 10-year/100,000-mile powertrain coverage</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔧</div>
+                    <h3>Blue Link Connected Services</h3>
+                    <p>Stay connected with remote start, vehicle diagnostics, and more</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Electrified Lineup</h3>
+                    <p>Leading the charge with hybrid, plug-in hybrid, and electric vehicles</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🏆</div>
+                    <h3>Award-Winning Safety</h3>
+                    <p>IIHS Top Safety Pick winners with Hyundai SmartSense standard</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Vehicle Lineup -->
+    <section class="vehicles">
+        <div class="container">
+            <h2>Explore Our Lineup</h2>
+            <div class="vehicle-categories">
+                <div class="category-tab active" data-category="suv">SUVs</div>
+                <div class="category-tab" data-category="sedan">Sedans</div>
+                <div class="category-tab" data-category="electric">Electric</div>
+            </div>
+            <div class="vehicles-grid">
+                <div class="vehicle-card">
+                    <div class="vehicle-image">
+                        <img src="https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
+                             alt="2024 Hyundai TUCSON" 
+                             class="vehicle-img"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="vehicle-placeholder" style="display: none;">TUCSON</div>
+                    </div>
+                    <h3>2024 TUCSON</h3>
+                    <p>Starting at $27,700</p>
+                    <button class="btn-outline">Learn More</button>
+                </div>
+                <div class="vehicle-card">
+                    <div class="vehicle-image">
+                        <img src="https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
+                             alt="2024 Hyundai SANTA FE" 
+                             class="vehicle-img"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="vehicle-placeholder" style="display: none;">SANTA FE</div>
+                    </div>
+                    <h3>2024 SANTA FE</h3>
+                    <p>Starting at $33,200</p>
+                    <button class="btn-outline">Learn More</button>
+                </div>
+                <div class="vehicle-card">
+                    <div class="vehicle-image">
+                        <img src="https://images.unsplash.com/photo-1494976688153-018c804d2581?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
+                             alt="2024 Hyundai PALISADE" 
+                             class="vehicle-img"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="vehicle-placeholder" style="display: none;">PALISADE</div>
+                    </div>
+                    <h3>2024 PALISADE</h3>
+                    <p>Starting at $36,500</p>
+                    <button class="btn-outline">Learn More</button>
+                </div>
+                <div class="vehicle-card">
+                    <div class="vehicle-image">
+                        <img src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
+                             alt="2024 Hyundai ELANTRA" 
+                             class="vehicle-img"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="vehicle-placeholder" style="display: none;">ELANTRA</div>
+                    </div>
+                    <h3>2024 ELANTRA</h3>
+                    <p>Starting at $22,350</p>
+                    <button class="btn-outline">Learn More</button>
+                </div>
+                <div class="vehicle-card">
+                    <div class="vehicle-image">
+                        <img src="https://images.unsplash.com/photo-1593941707882-a5bac6861d75?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
+                             alt="2024 Hyundai IONIQ 6" 
+                             class="vehicle-img"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="vehicle-placeholder" style="display: none;">IONIQ 6</div>
+                    </div>
+                    <h3>2024 IONIQ 6</h3>
+                    <p>Starting at $41,600</p>
+                    <button class="btn-outline">Learn More</button>
+                </div>
+                <div class="vehicle-card">
+                    <div class="vehicle-image">
+                        <img src="https://images.unsplash.com/photo-1580273916550-e323be2ae537?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" 
+                             alt="2024 Hyundai SONATA" 
+                             class="vehicle-img"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="vehicle-placeholder" style="display: none;">SONATA</div>
+                    </div>
+                    <h3>2024 SONATA</h3>
+                    <p>Starting at $25,400</p>
+                    <button class="btn-outline">Learn More</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Vehicles</h4>
+                    <ul>
+                        <li><a href="#">SUVs</a></li>
+                        <li><a href="#">Sedans</a></li>
+                        <li><a href="#">Electric</a></li>
+                        <li><a href="#">Compare Models</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Shopping</h4>
+                    <ul>
+                        <li><a href="#">Build & Price</a></li>
+                        <li><a href="#">Find a Dealer</a></li>
+                        <li><a href="#">Get a Quote</a></li>
+                        <li><a href="#">Schedule Service</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Support</h4>
+                    <ul>
+                        <li><a href="#">Owner's Manual</a></li>
+                        <li><a href="#">Warranty</a></li>
+                        <li><a href="#">Recalls</a></li>
+                        <li><a href="#">Contact Us</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="#">About Hyundai</a></li>
+                        <li><a href="#">News</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Sustainability</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 Hyundai Motor America. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Support Widget -->
+    <div id="support-widget" class="support-widget">
+        <button id="widget-toggle" class="widget-toggle" title="Customer Support">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+        </button>
+        
+        <div id="widget-panel" class="widget-panel" style="display: none;">
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <div class="header-info">
+                    <h3>Hyundai Support</h3>
+                    <div id="connection-status" class="connection-status">Ready to help</div>
+                </div>
+                <div class="header-actions">
+                    <button id="widget-expand" class="expand-btn" title="Expand">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="15,3 21,3 21,9"></polyline>
+                            <polyline points="9,21 3,21 3,15"></polyline>
+                            <line x1="21" y1="3" x2="14" y2="10"></line>
+                            <line x1="3" y1="21" x2="10" y2="14"></line>
+                        </svg>
+                    </button>
+                    <button id="widget-close" class="close-btn" title="Close">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Widget Actions -->
+            <div class="widget-actions">
+                <button id="call-btn" class="action-btn call-btn" title="Start Voice Call">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                    </svg>
+                    <span>Call Support</span>
                 </button>
 
-                <!-- End Call Options (shown when call is active and chat is connected) -->
-                <div id="end-call-options" style="display: none; gap: 8px;">
-                    <button id="continue-chat-btn" class="text-btn continue-btn" style="display: none;"
-                        title="End voice, continue chat">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
+                <!-- End Call Options (shown when call is active) -->
+                <div id="end-call-options" style="display: none;">
+                    <button id="continue-chat-btn" class="action-btn continue-btn" style="display: none;" title="End voice, continue chat">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                         </svg>
                         <span>Continue in Chat</span>
                     </button>
-                    <button id="hangup-btn" class="icon-btn hangup-btn" title="Hang up (end voice and chat)">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z">
-                            </path>
+                    <button id="hangup-btn" class="action-btn hangup-btn" title="Hang up">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"></path>
                         </svg>
+                        <span>Hang Up</span>
                     </button>
                 </div>
 
                 <!-- End Chat Button (shown when only chat is active) -->
-                <button id="end-chat-btn" class="text-btn end-chat-btn" style="display: none;" title="End chat">
+                <button id="end-chat-btn" class="action-btn end-chat-btn" style="display: none;" title="End chat">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                     </svg>
                     <span>End Chat</span>
                 </button>
             </div>
-        </div>
 
-        <!-- Call Active Banner -->
-        <div id="call-active-banner" class="call-active-banner" style="display: none;">
-            <div class="banner-content">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                        d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z">
-                    </path>
-                </svg>
-                <span>Call in progress</span>
+            <!-- Call Active Banner -->
+            <div id="call-active-banner" class="call-active-banner" style="display: none;">
+                <div class="banner-content">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                    </svg>
+                    <span>Call in progress</span>
+                </div>
             </div>
-        </div>
 
-        <!-- Chat Messages -->
-        <div id="chat-messages" class="chat-messages">
-            <div class="welcome-message">
-                <h3>Welcome to Amazon Connect Support</h3>
-                <p>Click the phone icon above to start a voice call, or type a message below to start chatting.</p>
+            <!-- Chat Messages -->
+            <div id="chat-messages" class="chat-messages">
+                <div class="welcome-message">
+                    <h4>Welcome to Hyundai Support</h4>
+                    <p>How can we help you today? You can start a voice call or send us a message.</p>
+                </div>
             </div>
-        </div>
 
-        <!-- Chat Input -->
-        <div class="chat-input-container">
-            <input type="text" id="chat-input" placeholder="Type a message..." disabled />
-            <button id="send-message-btn" disabled>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-            </button>
+            <!-- Chat Input -->
+            <div class="chat-input-container">
+                <input type="text" id="chat-input" placeholder="Type your message..." disabled />
+                <button id="send-message-btn" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
         </div>
     </div>
 

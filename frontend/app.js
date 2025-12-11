@@ -24,9 +24,57 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initApp() {
-  // Set up event listeners for new unified UI
+  // Set up widget toggle functionality
+  const widgetToggle = document.getElementById('widget-toggle');
+  const widgetPanel = document.getElementById('widget-panel');
+  const widgetClose = document.getElementById('widget-close');
+  
+  if (widgetToggle) {
+    widgetToggle.addEventListener('click', () => {
+      const isVisible = widgetPanel.style.display !== 'none';
+      widgetPanel.style.display = isVisible ? 'none' : 'flex';
+    });
+  }
+  
+  if (widgetClose) {
+    widgetClose.addEventListener('click', () => {
+      widgetPanel.style.display = 'none';
+    });
+  }
+  
+  // Set up expand functionality
+  const widgetExpand = document.getElementById('widget-expand');
+  if (widgetExpand) {
+    widgetExpand.addEventListener('click', () => {
+      const isExpanded = widgetPanel.classList.contains('expanded');
+      if (isExpanded) {
+        widgetPanel.classList.remove('expanded');
+        widgetExpand.innerHTML = `
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15,3 21,3 21,9"></polyline>
+            <polyline points="9,21 3,21 3,15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        `;
+        widgetExpand.title = 'Expand';
+      } else {
+        widgetPanel.classList.add('expanded');
+        widgetExpand.innerHTML = `
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4,14 10,14 10,20"></polyline>
+            <polyline points="20,10 14,10 14,4"></polyline>
+            <line x1="14" y1="10" x2="21" y2="3"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        `;
+        widgetExpand.title = 'Collapse';
+      }
+    });
+  }
+  
+  // Set up event listeners for chat/voice functionality
   const callBtn = document.getElementById('call-btn');
-  const endCallBtn = document.getElementById('end-call-btn');
   const sendMessageBtn = document.getElementById('send-message-btn');
   const chatInput = document.getElementById('chat-input');
   
@@ -69,6 +117,16 @@ function initApp() {
       }
     });
   }
+  
+  // Vehicle category tabs functionality
+  const categoryTabs = document.querySelectorAll('.category-tab');
+  categoryTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      categoryTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      // Here you could add logic to filter vehicles by category
+    });
+  });
   
   console.log('Application initialized successfully');
 }
