@@ -20,77 +20,112 @@ export interface ConnectMultimodalStackProps extends cdk.StackProps {
 }
 
 export class ConnectMultimodalStack extends cdk.Stack {
-  public readonly websiteBucket: s3.Bucket;
-  public readonly distribution: cloudfront.Distribution;
+  public readonly customerBucket: s3.Bucket;
+  public readonly agentBucket: s3.Bucket;
+  public readonly customerDistribution: cloudfront.Distribution;
+  public readonly agentDistribution: cloudfront.Distribution;
   public readonly api: apigateway.RestApi;
   public readonly websocketApi: apigatewayv2.WebSocketApi;
   public readonly connectionsTable: dynamodb.Table;
-  public readonly websiteUrl: string;
+  public readonly customerUrl: string;
+  public readonly agentUrl: string;
   public readonly apiUrl: string;
   public readonly websocketUrl: string;
 
   constructor(scope: Construct, id: string, props: ConnectMultimodalStackProps) {
     super(scope, id, props);
 
-    // S3 bucket for static website hosting (private)
-    this.websiteBucket = new s3.Bucket(this, 'WebsiteBucket', {
+    // S3 bucket for customer app (private)
+    this.customerBucket = new s3.Bucket(this, 'CustomerBucket', {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
     });
 
-    // CloudFront distribution with Origin Access Control
-    this.distribution = new cloudfront.Distribution(this, 'Distribution', {
+    // S3 bucket for agent app (private)
+    this.agentBucket = new s3.Bucket(this, 'AgentBucket', {
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    // CloudFront Function for customer app SPA routing
+    const customerUrlRewriteFunction = new cloudfront.Function(this, 'CustomerUrlRewriteFunction', {
+      code: cloudfront.FunctionCode.fromInline(`
+function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+  
+  // If requesting root or a path without extension, serve /index.html
+  if (uri === '/' || !uri.match(/\\.[a-zA-Z0-9]+$/)) {
+    request.uri = '/index.html';
+  }
+  
+  return request;
+}
+      `),
+    });
+
+    // CloudFront Function for agent app SPA routing
+    const agentUrlRewriteFunction = new cloudfront.Function(this, 'AgentUrlRewriteFunction', {
+      code: cloudfront.FunctionCode.fromInline(`
+function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+  
+  // If requesting root or a path without extension, serve /index.html
+  if (uri === '/' || !uri.match(/\\.[a-zA-Z0-9]+$/)) {
+    request.uri = '/index.html';
+  }
+  
+  return request;
+}
+      `),
+    });
+
+    // CloudFront distribution for customer app
+    this.customerDistribution = new cloudfront.Distribution(this, 'CustomerDistribution', {
       defaultBehavior: {
-        origin: origins.S3BucketOrigin.withOriginAccessControl(this.websiteBucket),
+        origin: origins.S3BucketOrigin.withOriginAccessControl(this.customerBucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        functionAssociations: [{
+          function: customerUrlRewriteFunction,
+          eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+        }],
       },
       defaultRootObject: 'index.html',
-      additionalBehaviors: {
-        '/ccp/*': {
-          origin: origins.S3BucketOrigin.withOriginAccessControl(this.websiteBucket),
-          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-          cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
-        },
+      comment: 'CloudFront distribution for Connect Customer App',
+    });
+
+    // CloudFront distribution for agent app
+    this.agentDistribution = new cloudfront.Distribution(this, 'AgentDistribution', {
+      defaultBehavior: {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(this.agentBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        functionAssociations: [{
+          function: agentUrlRewriteFunction,
+          eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+        }],
       },
-      errorResponses: [
-        {
-          httpStatus: 404,
-          responseHttpStatus: 200,
-          responsePagePath: '/index.html',
-          ttl: cdk.Duration.seconds(300),
-        },
-        {
-          httpStatus: 403,
-          responseHttpStatus: 200,
-          responsePagePath: '/index.html',
-          ttl: cdk.Duration.seconds(300),
-        },
-      ],
-      comment: 'CloudFront distribution for Connect Multimodal Demo (Customer + Agent)',
+      defaultRootObject: 'index.html',
+      comment: 'CloudFront distribution for Connect Agent App',
     });
 
-    // Deploy customer frontend to root path
-    const customerDeployment = new s3deploy.BucketDeployment(this, 'DeployCustomerApp', {
+    // Deploy customer frontend
+    new s3deploy.BucketDeployment(this, 'DeployCustomerApp', {
       sources: [s3deploy.Source.asset(path.join(__dirname, '../../frontend/dist'))],
-      destinationBucket: this.websiteBucket,
-      distribution: this.distribution,
-      distributionPaths: ['/index.html', '/assets/*'],
-      prune: false, // Don't delete files from other deployments
+      destinationBucket: this.customerBucket,
+      distribution: this.customerDistribution,
+      distributionPaths: ['/*'],
     });
 
-    // Deploy agent app to /ccp path
-    const agentDeployment = new s3deploy.BucketDeployment(this, 'DeployAgentApp', {
+    // Deploy agent app
+    new s3deploy.BucketDeployment(this, 'DeployAgentApp', {
       sources: [s3deploy.Source.asset(path.join(__dirname, '../../agent-app/dist'))],
-      destinationBucket: this.websiteBucket,
-      destinationKeyPrefix: 'ccp',
-      distribution: this.distribution,
-      distributionPaths: ['/ccp/*'],
-      prune: false, // Don't delete files from other deployments
+      destinationBucket: this.agentBucket,
+      distribution: this.agentDistribution,
+      distributionPaths: ['/*'],
     });
-
-    // Ensure customer app deploys first
-    agentDeployment.node.addDependency(customerDeployment);
 
     // Lambda function for Connect integration
     const connectLambda = new lambda.Function(this, 'ConnectLambda', {
@@ -306,18 +341,29 @@ export class ConnectMultimodalStack extends cdk.Stack {
     );
 
     // Outputs
-    this.websiteUrl = `https://${this.distribution.distributionDomainName}`;
+    this.customerUrl = `https://${this.customerDistribution.distributionDomainName}`;
+    this.agentUrl = `https://${this.agentDistribution.distributionDomainName}`;
     this.apiUrl = this.api.url;
     this.websocketUrl = `wss://${this.websocketApi.apiId}.execute-api.${this.region}.amazonaws.com/${wsStage.stageName}`;
 
-    new cdk.CfnOutput(this, 'WebsiteURL', {
-      value: this.websiteUrl,
-      description: 'CloudFront URL of the static website',
+    new cdk.CfnOutput(this, 'CustomerURL', {
+      value: this.customerUrl,
+      description: 'CloudFront URL of the customer app',
     });
 
-    new cdk.CfnOutput(this, 'CloudFrontDistributionId', {
-      value: this.distribution.distributionId,
-      description: 'CloudFront Distribution ID',
+    new cdk.CfnOutput(this, 'AgentURL', {
+      value: this.agentUrl,
+      description: 'CloudFront URL of the agent app',
+    });
+
+    new cdk.CfnOutput(this, 'CustomerDistributionId', {
+      value: this.customerDistribution.distributionId,
+      description: 'CloudFront Distribution ID for customer app',
+    });
+
+    new cdk.CfnOutput(this, 'AgentDistributionId', {
+      value: this.agentDistribution.distributionId,
+      description: 'CloudFront Distribution ID for agent app',
     });
 
     new cdk.CfnOutput(this, 'ApiURL', {
@@ -325,9 +371,14 @@ export class ConnectMultimodalStack extends cdk.Stack {
       description: 'URL of the API Gateway',
     });
 
-    new cdk.CfnOutput(this, 'BucketName', {
-      value: this.websiteBucket.bucketName,
-      description: 'Name of the S3 bucket',
+    new cdk.CfnOutput(this, 'CustomerBucketName', {
+      value: this.customerBucket.bucketName,
+      description: 'Name of the customer app S3 bucket',
+    });
+
+    new cdk.CfnOutput(this, 'AgentBucketName', {
+      value: this.agentBucket.bucketName,
+      description: 'Name of the agent app S3 bucket',
     });
 
     new cdk.CfnOutput(this, 'WebSocketURL', {
@@ -343,11 +394,6 @@ export class ConnectMultimodalStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ChatRoutingLambdaArn', {
       value: chatRoutingLambda.functionArn,
       description: 'ARN of the chat routing Lambda function',
-    });
-
-    new cdk.CfnOutput(this, 'AgentAppURL', {
-      value: `${this.websiteUrl}/ccp/`,
-      description: 'CloudFront URL of the agent interface',
     });
   }
 }

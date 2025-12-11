@@ -77,9 +77,11 @@ This script will:
 - Redeploy with updated configuration
 
 The deployment will output:
-- Website URL (S3 static website)
+- Customer App URL (CloudFront distribution)
+- Agent App URL (CloudFront distribution - add to Connect approved origins)
 - API Gateway URL
-- S3 Bucket name
+- WebSocket API URL
+- S3 Bucket names
 
 ## Manual Deployment
 
@@ -155,10 +157,19 @@ cdk destroy
 
 ## Architecture
 
-- **Frontend**: Static website hosted on S3
+- **Customer App**: Static website hosted on S3 with dedicated CloudFront distribution
+- **Agent App**: Separate static website on S3 with dedicated CloudFront distribution
 - **API Gateway**: REST API for frontend-backend communication
-- **Lambda**: Serverless function handling Connect API calls
+- **WebSocket API**: Real-time communication for chat delivery
+- **Lambda Functions**: Serverless functions handling Connect API calls and events
+- **DynamoDB**: Connection tracking for WebSocket sessions
 - **Amazon Connect**: Contact center service for chat and voice
+
+### Deployment Architecture
+
+The application uses two separate CloudFront distributions:
+- Customer App: Accessible at the main CloudFront URL
+- Agent App: Accessible at a separate CloudFront URL (add to Connect approved origins)
 
 ## Security
 

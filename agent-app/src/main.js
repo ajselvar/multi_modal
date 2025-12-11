@@ -113,13 +113,25 @@ function updateAgentStatus(agent) {
 // Handle contact events
 function handleContactEvent(contact) {
     const contactId = contact.getContactId();
+    const contactType = contact.getType();
+    const contactState = contact.getStatus().type;
+    
+    log(`New contact detected: ${contactId}, Type: ${contactType}, State: ${contactState}`, 'info');
     
     // Store contact
     AppState.contacts.set(contactId, contact);
     
     // Track voice contacts
-    if (contact.getType() === connect.ContactType.VOICE) {
+    if (contactType === connect.ContactType.VOICE) {
         AppState.voiceContactIds.add(contactId);
+        log(`Added voice contact to tracking: ${contactId}`, 'info');
+    }
+    
+    // Check if this is a chat contact that should be auto-accepted immediately
+    if (contactType === connect.ContactType.CHAT) {
+        log(`Chat contact detected: ${contactId}, checking for auto-accept...`, 'info');
+        // Check immediately in case the contact is already in a state that needs handling
+        checkAndAutoAcceptChat(contact);
     }
     
     // Setup contact event handlers
@@ -159,31 +171,46 @@ function handleContactIncoming(contact) {
 // Check if chat should be auto-accepted
 async function checkAndAutoAcceptChat(contact) {
     try {
-        const relatedContactId = contact.getRelatedContactId();
+        const contactId = contact.getContactId();
+        const contactState = contact.getStatus().type;
         
-        log(`Chat contact relatedContactId: ${relatedContactId}`, 'info');
+        log(`Checking chat auto-accept for ${contactId}, state: ${contactState}`, 'info');
+        
+        // Get related contact ID - try multiple methods
+        let relatedContactId = contact.getRelatedContactId();
+        
+        // If getRelatedContactId() doesn't work, try getting it from attributes
+        if (!relatedContactId) {
+            const attributes = contact.getAttributes();
+            relatedContactId = attributes.relatedContactId?.value || attributes.RelatedContactId?.value;
+            log(`Trying to get relatedContactId from attributes: ${relatedContactId}`, 'info');
+        }
+        
+        log(`Chat contact ${contactId} relatedContactId: ${relatedContactId}`, 'info');
+        log(`Current voice contacts: ${Array.from(AppState.voiceContactIds).join(', ')}`, 'info');
         
         if (relatedContactId) {
             log(`Chat has relatedContactId: ${relatedContactId}`, 'info');
             
             // Check if we have an active voice contact with this ID
             if (AppState.voiceContactIds.has(relatedContactId)) {
-                log(`Auto-accepting chat related to active voice contact`, 'success');
+                log(`Auto-accepting chat related to active voice contact ${relatedContactId}`, 'success');
                 
                 // Auto-accept the chat
                 contact.accept({
                     success: () => {
-                        log(`Successfully auto-accepted chat contact`, 'success');
+                        log(`Successfully auto-accepted chat contact ${contactId}`, 'success');
                     },
                     failure: (error) => {
-                        log(`Failed to auto-accept chat: ${error}`, 'error');
+                        log(`Failed to auto-accept chat ${contactId}: ${error}`, 'error');
                     }
                 });
             } else {
                 log(`Related voice contact ${relatedContactId} not found in active contacts`, 'warning');
+                log(`Available voice contacts: ${Array.from(AppState.voiceContactIds).join(', ') || 'none'}`, 'warning');
             }
         } else {
-            log(`Chat contact has no relatedContactId - manual accept required`, 'info');
+            log(`Chat contact ${contactId} has no relatedContactId - manual accept required`, 'info');
         }
     } catch (error) {
         log(`Error checking chat auto-accept: ${error.message}`, 'error');

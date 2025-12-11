@@ -38,3 +38,4 @@ npm-debug.log*
 cdk.out/
 *.log
 .kiro/
+config.json
