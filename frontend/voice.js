@@ -229,6 +229,11 @@ export const VoiceWidget = {
       const { ChatWidget } = await import('./chat.js');
       await ChatWidget.end();
       
+      // Use the centralized reset function to ensure clean UI state
+      if (window.resetModeSelection) {
+        window.resetModeSelection();
+      }
+      
       displayMessage('Call and chat ended', 'system');
       
     } catch (error) {

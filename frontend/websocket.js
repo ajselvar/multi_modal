@@ -9,13 +9,17 @@ export class WebSocketClient {
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 1000; // Start with 1 second
     this.messageHandlers = new Map();
+    this.interactionMode = null; // Store interaction mode for connection metadata
   }
 
-  connect() {
+  connect(interactionMode = null) {
     return new Promise((resolve, reject) => {
       try {
         const wsUrl = config.websocket.url;
-        console.log('Connecting to WebSocket:', wsUrl);
+        console.log('Connecting to WebSocket:', wsUrl, 'with mode:', interactionMode);
+
+        // Store interaction mode for use in messages
+        this.interactionMode = interactionMode;
 
         this.ws = new WebSocket(wsUrl);
 
@@ -24,6 +28,12 @@ export class WebSocketClient {
           this.isConnected = true;
           this.reconnectAttempts = 0;
           this.reconnectDelay = 1000;
+
+          // Send connection metadata including interaction mode
+          if (this.interactionMode) {
+            this.sendConnectionMetadata();
+          }
+
           resolve();
         };
 
@@ -64,12 +74,28 @@ export class WebSocketClient {
 
     setTimeout(() => {
       if (!this.isConnected) {
-        this.connect().catch(error => {
+        this.connect(this.interactionMode).catch(error => {
           console.error('Reconnect failed:', error);
           this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000); // Max 30 seconds
         });
       }
     }, this.reconnectDelay);
+  }
+
+  sendConnectionMetadata() {
+    if (!this.isConnected) {
+      console.error('WebSocket not connected, cannot send connection metadata');
+      return;
+    }
+
+    const metadata = {
+      type: 'connection',
+      interactionMode: this.interactionMode,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('Sending connection metadata:', metadata);
+    this.send(metadata);
   }
 
   registerForVoiceContact(voiceContactId) {
@@ -80,10 +106,11 @@ export class WebSocketClient {
 
     const message = {
       action: 'register',
-      voiceContactId: voiceContactId
+      voiceContactId: voiceContactId,
+      interactionMode: this.interactionMode // Include mode in registration
     };
 
-    console.log('Registering for voice contact:', voiceContactId);
+    console.log('Registering for voice contact:', voiceContactId, 'with mode:', this.interactionMode);
     this.send(message);
   }
 
@@ -94,8 +121,14 @@ export class WebSocketClient {
     }
 
     try {
-      this.ws.send(JSON.stringify(message));
-      console.log('WebSocket message sent:', message);
+      // Include interaction mode in all messages if available
+      const messageWithMode = {
+        ...message,
+        interactionMode: this.interactionMode
+      };
+
+      this.ws.send(JSON.stringify(messageWithMode));
+      console.log('WebSocket message sent:', messageWithMode);
     } catch (error) {
       console.error('Failed to send WebSocket message:', error);
     }
@@ -120,12 +153,47 @@ export class WebSocketClient {
     this.messageHandlers.set(type, handler);
   }
 
+  sendTypingIndicator(isTyping, sessionId = null) {
+    if (!this.isConnected) {
+      console.error('WebSocket not connected, cannot send typing indicator');
+      return;
+    }
+
+    const message = {
+      type: 'typing',
+      isTyping: isTyping,
+      sessionId: sessionId,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('Sending typing indicator:', message);
+    this.send(message);
+  }
+
+  sendChatMessage(content, sessionId = null) {
+    if (!this.isConnected) {
+      console.error('WebSocket not connected, cannot send chat message');
+      return;
+    }
+
+    const message = {
+      type: 'message',
+      content: content,
+      sessionId: sessionId,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('Sending chat message via WebSocket:', message);
+    this.send(message);
+  }
+
   disconnect() {
     if (this.ws) {
       console.log('Disconnecting WebSocket');
       this.ws.close(1000, 'Client disconnect');
       this.ws = null;
       this.isConnected = false;
+      this.interactionMode = null; // Clear interaction mode on disconnect
     }
   }
 }

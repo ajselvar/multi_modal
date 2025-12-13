@@ -1,18 +1,24 @@
 // Chat Widget using amazon-connect-chatjs
 import { config } from './config.js';
-import { updateStatus, displayMessage, displayError, callAPI, enableChatInput } from './app.js';
+import { updateStatus, displayMessage, displayError, callAPI, enableChatInput, showModeSelection } from './app.js';
 
 export const ChatWidget = {
     session: null,
     contactId: null,
+    interactionMode: null, // 'chat-only' or 'voice-chat'
 
-    async start() {
-        console.log('--- ChatWidget.start() called ---');
+    async start(mode = 'voice-chat') {
+        console.log('--- ChatWidget.start() called with mode:', mode);
         updateStatus('Connecting to chat...');
 
+        // Store the interaction mode
+        this.interactionMode = mode;
+
         try {
-            // Call Lambda to get contact details
-            const contactData = await callAPI('/start-chat-contact', {});
+            // Call Lambda to get contact details, include mode in request
+            const contactData = await callAPI('/start-chat-contact', { 
+                interactionMode: mode 
+            });
             console.log('Chat contact data received:', contactData);
 
             // Store contact ID for later use
@@ -42,7 +48,7 @@ export const ChatWidget = {
             // Connect
             await this.session.connect();
 
-            console.log('Chat session connected successfully');
+            console.log(`Chat session connected successfully in ${mode} mode`);
         } catch (error) {
             console.error('Failed to start chat:', error);
             updateStatus('Chat connection failed');
@@ -58,6 +64,9 @@ export const ChatWidget = {
 
         // Enable chat input
         enableChatInput(true);
+
+        // Conditionally display voice-related UI elements based on mode
+        this.updateUIForMode();
     },
 
     handleMessage(event) {
@@ -103,8 +112,20 @@ export const ChatWidget = {
         // Disable chat input
         enableChatInput(false);
 
-        // Clear contact ID
+        // Reset UI elements when session ends
+        if (this.interactionMode === 'chat-only') {
+            // For chat-only mode, use centralized reset function
+            if (window.resetModeSelection) {
+                window.resetModeSelection();
+            } else {
+                // Fallback: reset to show mode selection
+                showModeSelection(true);
+            }
+        }
+
+        // Clear contact ID and interaction mode
         this.contactId = null;
+        this.interactionMode = null;
     },
 
     async end() {
@@ -158,10 +179,62 @@ export const ChatWidget = {
         displayMessage(text, 'customer');
     },
 
+    // Update UI elements based on interaction mode
+    updateUIForMode() {
+        console.log(`Updating UI for mode: ${this.interactionMode}`);
+        
+        if (this.interactionMode === 'chat-only') {
+            // Hide voice-related UI elements for chat-only mode
+            this.hideVoiceRelatedElements();
+        } else if (this.interactionMode === 'voice-chat') {
+            // Show voice-related UI elements for voice+chat mode
+            this.showVoiceRelatedElements();
+        }
+    },
+
+    // Hide voice-related UI elements
+    hideVoiceRelatedElements() {
+        // Hide call active banner
+        const callBanner = document.getElementById('call-active-banner');
+        if (callBanner) {
+            callBanner.style.display = 'none';
+        }
+
+        // Hide end call options (hangup, continue chat buttons)
+        const endCallOptions = document.getElementById('end-call-options');
+        if (endCallOptions) {
+            endCallOptions.style.display = 'none';
+        }
+
+        // Hide legacy call button
+        const callBtn = document.getElementById('call-btn');
+        if (callBtn) {
+            callBtn.style.display = 'none';
+        }
+
+        // Hide continue chat button
+        const continueChatBtn = document.getElementById('continue-chat-btn');
+        if (continueChatBtn) {
+            continueChatBtn.style.display = 'none';
+        }
+
+        console.log('Voice-related UI elements hidden for chat-only mode');
+    },
+
+    // Show voice-related UI elements
+    showVoiceRelatedElements() {
+        // Voice-related elements are shown/hidden by VoiceWidget based on call state
+        // This method is here for completeness and future extensibility
+        console.log('Voice-related UI elements managed by VoiceWidget for voice+chat mode');
+    },
+
     // Initialize chat with provided contact details (for automatic chat creation via WebSocket)
-    async initializeWithDetails(contactId, participantId, participantToken) {
+    async initializeWithDetails(contactId, participantId, participantToken, mode = 'voice-chat') {
         console.log('--- ChatWidget.initializeWithDetails() called ---');
-        console.log('Contact details:', { contactId, participantId, participantToken });
+        console.log('Contact details:', { contactId, participantId, participantToken, mode });
+
+        // Store the interaction mode
+        this.interactionMode = mode;
 
         try {
             // Store contact ID
@@ -191,7 +264,7 @@ export const ChatWidget = {
             // Connect
             await this.session.connect();
 
-            console.log('Chat session initialized with provided details');
+            console.log(`Chat session initialized with provided details in ${mode} mode`);
         } catch (error) {
             console.error('Failed to initialize chat with details:', error);
             updateStatus('Chat initialization failed');

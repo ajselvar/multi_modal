@@ -14,7 +14,8 @@ console.log('Application initialized with config:', {
 const AppState = {
   apiEndpoint: config.api.endpoint,
   chatActive: false,
-  voiceActive: false
+  voiceActive: false,
+  interactionMode: null // 'chat-only' or 'voice-chat'
 };
 
 // Initialize application when DOM is ready
@@ -75,6 +76,8 @@ function initApp() {
   
   // Set up event listeners for chat/voice functionality
   const callBtn = document.getElementById('call-btn');
+  const startChatBtn = document.getElementById('start-chat-btn');
+  const startCallBtn = document.getElementById('start-call-btn');
   const sendMessageBtn = document.getElementById('send-message-btn');
   const chatInput = document.getElementById('chat-input');
   
@@ -82,6 +85,9 @@ function initApp() {
   const hangupBtn = document.getElementById('hangup-btn');
   const continueChatBtn = document.getElementById('continue-chat-btn');
   const endChatBtn = document.getElementById('end-chat-btn');
+  
+  // Mode selection event handlers are handled in main.js
+  // Removed duplicate handlers to prevent double chat creation
   
   if (callBtn) {
     callBtn.addEventListener('click', startVoice);
@@ -138,14 +144,117 @@ async function startChat() {
   await ChatWidget.start();
 }
 
+async function startChatOnly() {
+  console.log('Start chat-only mode');
+  
+  // Hide mode selection and show chat interface
+  showModeSelection(false);
+  
+  // Set interaction mode to chat-only
+  AppState.interactionMode = 'chat-only';
+  
+  // Update status
+  updateStatus('Connecting to chat...');
+  
+  try {
+    // Use ChatWidget to start chat-only session
+    await ChatWidget.start('chat-only');
+    
+    // Show end chat button
+    showEndChatButton(true);
+    
+    // Update status
+    updateStatus('Chat connected');
+    
+    // Enable chat input
+    enableChatInput(true);
+    
+    displayMessage('✓ Chat-only session started. Type your message below.', 'system');
+  } catch (error) {
+    console.error('Failed to start chat-only session:', error);
+    displayError('Failed to start chat session. Please try again.');
+    showModeSelection(true);
+    updateStatus('Ready to help');
+  }
+}
+
+async function startVoiceWithChat() {
+  console.log('Start voice+chat mode');
+  
+  // Hide mode selection
+  showModeSelection(false);
+  
+  // Set interaction mode to voice+chat
+  AppState.interactionMode = 'voice-chat';
+  
+  // Update status
+  updateStatus('Starting voice call...');
+  
+  try {
+    // Use VoiceWidget to start voice+chat session
+    await VoiceWidget.start('voice-chat');
+    
+    // Update status
+    updateStatus('Call connected');
+    
+    displayMessage('✓ Voice+chat session started. You can speak or type messages.', 'system');
+  } catch (error) {
+    console.error('Failed to start voice+chat session:', error);
+    displayError('Failed to start voice call. Please try again.');
+    showModeSelection(true);
+    updateStatus('Ready to help');
+  }
+}
+
 async function endChat() {
   console.log('End chat button clicked');
   
   // Use ChatWidget to end chat
   await ChatWidget.end();
   
-  // Hide the "End Chat" button
-  showEndChatButton(false);
+  // Use the centralized reset function from main.js
+  if (window.resetModeSelection) {
+    window.resetModeSelection();
+  } else {
+    // Fallback if resetModeSelection is not available
+    // Hide the "End Chat" button
+    showEndChatButton(false);
+    
+    // Show mode selection again
+    showModeSelection(true);
+    
+    // Hide all other buttons that shouldn't be visible
+    const callBtn = document.getElementById('call-btn');
+    if (callBtn) {
+      callBtn.style.display = 'none';
+    }
+    
+    const endCallOptions = document.getElementById('end-call-options');
+    if (endCallOptions) {
+      endCallOptions.style.display = 'none';
+    }
+    
+    const continueChatBtn = document.getElementById('continue-chat-btn');
+    if (continueChatBtn) {
+      continueChatBtn.style.display = 'none';
+    }
+    
+    const callBanner = document.getElementById('call-active-banner');
+    if (callBanner) {
+      callBanner.style.display = 'none';
+    }
+  }
+  
+  // Reset interaction mode
+  AppState.interactionMode = null;
+  
+  // Disable chat input
+  enableChatInput(false);
+  
+  // Update status
+  updateStatus('Ready to help');
+  
+  displayMessage('Chat session ended. You can start a new session by selecting an option above.', 'system');
 }
 
 async function startVoice() {
@@ -224,6 +333,13 @@ function showEndChatButton(show) {
   }
 }
 
+function showModeSelection(show) {
+  const modeSelection = document.getElementById('mode-selection');
+  if (modeSelection) {
+    modeSelection.style.display = show ? 'flex' : 'none';
+  }
+}
+
 function enableChatInput(enabled) {
   const chatInput = document.getElementById('chat-input');
   const sendBtn = document.getElementById('send-message-btn');
@@ -238,7 +354,7 @@ function enableChatInput(enabled) {
 }
 
 // Export additional UI helper functions
-export { updateStatus, displayMessage, displayError, callAPI, showCallBanner, toggleCallButtons, enableChatInput, showContinueChatButton, showEndChatButton };
+export { updateStatus, displayMessage, displayError, callAPI, showCallBanner, toggleCallButtons, enableChatInput, showContinueChatButton, showEndChatButton, showModeSelection };
 
 function displayMessage(message, sender = 'system', senderName = null) {
   const container = document.getElementById('chat-messages');

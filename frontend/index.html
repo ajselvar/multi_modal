@@ -269,7 +269,25 @@
 
             <!-- Widget Actions -->
             <div class="widget-actions">
-                <button id="call-btn" class="action-btn call-btn" title="Start Voice Call">
+                <!-- Mode Selection Interface -->
+                <div id="mode-selection" class="mode-selection">
+                    <button id="start-chat-btn" class="action-btn chat-btn" title="Start a text-only conversation with our support team">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        <span>Start Chat</span>
+                    </button>
+                    
+                    <button id="start-call-btn" class="action-btn call-btn" title="Start a voice call with chat capabilities">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                        </svg>
+                        <span>Start Call</span>
+                    </button>
+                </div>
+                
+                <!-- Legacy Call Button (hidden by default, shown when call is active) -->
+                <button id="call-btn" class="action-btn call-btn" style="display: none;" title="Start Voice Call">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
                     </svg>
@@ -315,7 +333,7 @@
             <div id="chat-messages" class="chat-messages">
                 <div class="welcome-message">
                     <h4>Welcome to Hyundai Support</h4>
-                    <p>How can we help you today? You can start a voice call or send us a message.</p>
+                    <p>How can we help you today? Choose "Start Chat" for text-only support or "Start Call" for voice with chat capabilities.</p>
                 </div>
             </div>
 

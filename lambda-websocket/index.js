@@ -1,5 +1,5 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, DeleteCommand, UpdateCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, DeleteCommand, UpdateCommand, QueryCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const { ApiGatewayManagementApiClient, PostToConnectionCommand } = require('@aws-sdk/client-apigatewaymanagementapi');
 
 const dynamoClient = new DynamoDBClient({});
@@ -20,12 +20,14 @@ exports.handler = async (event) => {
   });
   
   const { routeKey, connectionId, domainName, stage } = event.requestContext;
+  const queryStringParameters = event.queryStringParameters || {};
   
   console.log('Extracted values:', {
     routeKey,
     connectionId,
     domainName,
     stage,
+    queryStringParameters,
     body: event.body
   });
   
@@ -35,7 +37,7 @@ exports.handler = async (event) => {
     switch (routeKey) {
       case '$connect':
         console.log('Handling $connect route');
-        return await handleConnect(connectionId);
+        return await handleConnect(connectionId, queryStringParameters);
       
       case '$disconnect':
         console.log('Handling $disconnect route');
@@ -59,16 +61,22 @@ exports.handler = async (event) => {
   }
 };
 
-async function handleConnect(connectionId) {
+async function handleConnect(connectionId, queryStringParameters) {
   console.log('=== handleConnect START ===');
   console.log('Client connected:', connectionId);
+  console.log('Query parameters:', queryStringParameters);
   console.log('Table name:', TABLE_NAME);
+  
+  // Extract interaction mode from query parameters, default to voice-chat for backward compatibility
+  const interactionMode = queryStringParameters?.interactionMode || 'voice-chat';
+  console.log('Interaction mode:', interactionMode);
   
   try {
     const command = new PutCommand({
       TableName: TABLE_NAME,
       Item: {
         connectionId,
+        interactionMode,
         connectedAt: Date.now(),
         ttl: Math.floor(Date.now() / 1000) + 86400 // 24 hours TTL
       }
@@ -76,7 +84,7 @@ async function handleConnect(connectionId) {
     
     console.log('Sending PutCommand to DynamoDB');
     await docClient.send(command);
-    console.log(`Connection ${connectionId} stored successfully`);
+    console.log(`Connection ${connectionId} stored successfully with mode ${interactionMode}`);
     console.log('=== handleConnect END ===');
     
     return { statusCode: 200, body: 'Connected' };
@@ -166,7 +174,19 @@ async function handleRegister(connectionId, voiceContactId) {
   console.log('Table name:', TABLE_NAME);
   
   try {
-    const command = new UpdateCommand({
+    // First, get the current connection to retrieve the interaction mode
+    const getCommand = new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { connectionId }
+    });
+    
+    const getResult = await docClient.send(getCommand);
+    const connection = getResult.Item;
+    const interactionMode = connection?.interactionMode || 'voice-chat';
+    
+    console.log('Retrieved interaction mode:', interactionMode);
+    
+    const updateCommand = new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { connectionId },
       UpdateExpression: 'SET voiceContactId = :voiceContactId, registeredAt = :registeredAt',
@@ -177,11 +197,22 @@ async function handleRegister(connectionId, voiceContactId) {
     });
     
     console.log('Sending UpdateCommand to DynamoDB');
-    await docClient.send(command);
-    console.log(`Connection ${connectionId} registered for voice contact ${voiceContactId}`);
-    console.log('=== handleRegister END ===');
+    await docClient.send(updateCommand);
+    console.log(`Connection ${connectionId} registered for voice contact ${voiceContactId} with mode ${interactionMode}`);
     
-    return { statusCode: 200, body: 'Registered' };
+    // Return the interaction mode information for agent interface
+    const response = {
+      statusCode: 200,
+      body: JSON.stringify({
+        status: 'Registered',
+        interactionMode: interactionMode,
+        voiceContactId: voiceContactId,
+        connectionId: connectionId
+      })
+    };
+    
+    console.log('=== handleRegister END ===');
+    return response;
   } catch (error) {
     console.error('=== ERROR in handleRegister ===');
     console.error('Error:', error);
@@ -245,9 +276,40 @@ exports.findConnectionByVoiceContactId = async function(voiceContactId) {
   });
   
   const result = await docClient.send(command);
-  return result.Items && result.Items.length > 0 ? result.Items[0] : null;
+  const connection = result.Items && result.Items.length > 0 ? result.Items[0] : null;
+  
+  // Include interaction mode in the returned connection data
+  if (connection) {
+    console.log(`Found connection ${connection.connectionId} with interaction mode: ${connection.interactionMode || 'voice-chat'}`);
+  }
+  
+  return connection;
 };
 
 exports.sendMessageToConnection = async function(connectionId, domainName, stage, message) {
+  // Get connection details to include interaction mode in the message
+  try {
+    const getCommand = new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { connectionId }
+    });
+    
+    const getResult = await docClient.send(getCommand);
+    const connection = getResult.Item;
+    
+    // Enhance message with interaction mode if connection exists
+    if (connection && connection.interactionMode) {
+      const enhancedMessage = {
+        ...message,
+        interactionMode: connection.interactionMode
+      };
+      console.log(`Sending message with interaction mode: ${connection.interactionMode}`);
+      return await sendToConnection(connectionId, domainName, stage, enhancedMessage);
+    }
+  } catch (error) {
+    console.warn('Could not retrieve connection details for mode information:', error);
+  }
+  
+  // Fallback to original message if we can't get connection details
   return await sendToConnection(connectionId, domainName, stage, message);
 };

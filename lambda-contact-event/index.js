@@ -45,7 +45,7 @@ exports.handler = async (event) => {
         
         // Create chat contact with voice contactId as related contact
         console.log('Creating chat contact...');
-        const chatContact = await createChatContact(contactId);
+        const chatContact = await createChatContact(contactId, connection.interactionMode || 'voice-chat');
         
         console.log('Chat contact created:', {
           contactId: chatContact.ContactId,
@@ -59,7 +59,8 @@ exports.handler = async (event) => {
           chatContactId: chatContact.ContactId,
           participantId: chatContact.ParticipantId,
           participantToken: chatContact.ParticipantToken,
-          voiceContactId: contactId
+          voiceContactId: contactId,
+          interactionMode: connection.interactionMode || 'voice-chat'
         });
         
         console.log('Successfully processed voice CONNECTED_TO_AGENT event');
@@ -114,7 +115,8 @@ exports.handler = async (event) => {
         await sendToWebSocket(connection.connectionId, {
           type: 'CHAT_AGENT_CONNECTED',
           chatContactId: contactId,
-          voiceContactId: relatedContactId
+          voiceContactId: relatedContactId,
+          interactionMode: connection.interactionMode || 'voice-chat'
         });
         
         console.log('Successfully processed chat CONNECTED_TO_AGENT event');
@@ -147,11 +149,18 @@ async function findConnectionByVoiceContactId(voiceContactId) {
   const result = await docClient.send(command);
   console.log('DynamoDB query result:', result.Items?.length || 0, 'items found');
   
-  return result.Items && result.Items.length > 0 ? result.Items[0] : null;
+  const connection = result.Items && result.Items.length > 0 ? result.Items[0] : null;
+  
+  // Log interaction mode information for session tracking
+  if (connection) {
+    console.log(`Found connection ${connection.connectionId} with interaction mode: ${connection.interactionMode || 'voice-chat'}`);
+  }
+  
+  return connection;
 }
 
-async function createChatContact(voiceContactId) {
-  console.log('Creating chat contact with relatedContactId:', voiceContactId);
+async function createChatContact(voiceContactId, interactionMode = 'voice-chat') {
+  console.log('Creating chat contact with relatedContactId:', voiceContactId, 'and interaction mode:', interactionMode);
   
   const command = new StartChatContactCommand({
     InstanceId: INSTANCE_ID,
@@ -160,12 +169,13 @@ async function createChatContact(voiceContactId) {
       DisplayName: 'Customer'
     },
     Attributes: {
-      relatedContactId: voiceContactId
+      relatedContactId: voiceContactId,
+      interactionMode: interactionMode
     }
   });
   
   const response = await connectClient.send(command);
-  console.log('Chat contact created successfully');
+  console.log('Chat contact created successfully with interaction mode:', interactionMode);
   
   return {
     ContactId: response.ContactId,
