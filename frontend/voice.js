@@ -20,18 +20,25 @@ export const VoiceWidget = {
     updateStatus('Connecting to voice...');
 
     try {
-      // Call Lambda to get WebRTC contact details
-      const contactData = await callAPI('/start-voice-contact', {});
+      // Get UserId for this session
+      const { getUserId } = await import('./userId.js');
+      const userId = getUserId();
+      
+      // Call Lambda to get WebRTC contact details, including UserId in attributes
+      const contactData = await callAPI('/start-voice-contact', {
+        attributes: {
+          userId: userId
+        }
+      });
       console.log('Voice contact data received:', contactData);
 
       // Store contact ID for later use
       this.contactId = contactData.contactId;
 
-      // Connect to WebSocket and register for this voice contact
+      // Connect to WebSocket (registration happens automatically with UserId)
       try {
         await wsClient.connect();
-        wsClient.registerForVoiceContact(this.contactId);
-        console.log('WebSocket connected and registered for voice contact:', this.contactId);
+        console.log('WebSocket connected and registered with UserId');
         
         // Set up handler for chat contact events
         wsClient.onMessage('CHAT_CONTACT_CREATED', this.handleChatContactCreated.bind(this));

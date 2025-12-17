@@ -59,8 +59,8 @@ async function initializeChatOnly() {
   console.log('Initializing chat-only mode');
   
   try {
-    // Connect WebSocket with interaction mode
-    await wsClient.connect(AppState.selectedMode);
+    // Connect WebSocket
+    await wsClient.connect();
     
     // Pass mode to chat initialization
     await ChatWidget.start(AppState.selectedMode);
@@ -86,8 +86,8 @@ async function initializeVoiceWithChat() {
   console.log('Initializing voice+chat mode');
   
   try {
-    // Connect WebSocket with interaction mode
-    await wsClient.connect(AppState.selectedMode);
+    // Connect WebSocket
+    await wsClient.connect();
     
     // Pass mode to voice initialization
     await VoiceWidget.start(AppState.selectedMode);

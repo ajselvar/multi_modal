@@ -1,5 +1,6 @@
 // WebSocket client for real-time communication
 import { config } from './config.js';
+import { getUserId } from './userId.js';
 
 export class WebSocketClient {
   constructor() {
@@ -9,17 +10,18 @@ export class WebSocketClient {
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 1000; // Start with 1 second
     this.messageHandlers = new Map();
-    this.interactionMode = null; // Store interaction mode for connection metadata
+    this.userId = null; // Store userId for this session
   }
 
-  connect(interactionMode = null) {
+  connect() {
     return new Promise((resolve, reject) => {
       try {
         const wsUrl = config.websocket.url;
-        console.log('Connecting to WebSocket:', wsUrl, 'with mode:', interactionMode);
-
-        // Store interaction mode for use in messages
-        this.interactionMode = interactionMode;
+        console.log('Connecting to WebSocket:', wsUrl);
+        
+        // Get or generate UserId for this session
+        this.userId = getUserId();
+        console.log('Using UserId for WebSocket connection:', this.userId);
 
         this.ws = new WebSocket(wsUrl);
 
@@ -29,10 +31,8 @@ export class WebSocketClient {
           this.reconnectAttempts = 0;
           this.reconnectDelay = 1000;
 
-          // Send connection metadata including interaction mode
-          if (this.interactionMode) {
-            this.sendConnectionMetadata();
-          }
+          // Register with UserId immediately after connection
+          this.registerWithUserId();
 
           resolve();
         };
@@ -74,7 +74,7 @@ export class WebSocketClient {
 
     setTimeout(() => {
       if (!this.isConnected) {
-        this.connect(this.interactionMode).catch(error => {
+        this.connect().catch(error => {
           console.error('Reconnect failed:', error);
           this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000); // Max 30 seconds
         });
@@ -82,36 +82,33 @@ export class WebSocketClient {
     }, this.reconnectDelay);
   }
 
-  sendConnectionMetadata() {
+  /**
+   * Register WebSocket connection with UserId
+   * Implements Requirements 1.2, 3.2
+   */
+  registerWithUserId() {
     if (!this.isConnected) {
-      console.error('WebSocket not connected, cannot send connection metadata');
-      return;
-    }
-
-    const metadata = {
-      type: 'connection',
-      interactionMode: this.interactionMode,
-      timestamp: new Date().toISOString()
-    };
-
-    console.log('Sending connection metadata:', metadata);
-    this.send(metadata);
-  }
-
-  registerForVoiceContact(voiceContactId) {
-    if (!this.isConnected) {
-      console.error('WebSocket not connected');
+      console.error('WebSocket not connected, cannot register');
       return;
     }
 
     const message = {
       action: 'register',
-      voiceContactId: voiceContactId,
-      interactionMode: this.interactionMode // Include mode in registration
+      userId: this.userId
     };
 
-    console.log('Registering for voice contact:', voiceContactId, 'with mode:', this.interactionMode);
+    console.log('Registering WebSocket with UserId:', this.userId);
     this.send(message);
+  }
+
+  /**
+   * @deprecated Use registerWithUserId() instead
+   * Kept for backward compatibility during migration
+   */
+  registerForVoiceContact(voiceContactId) {
+    console.warn('registerForVoiceContact is deprecated, using UserId registration instead');
+    // Just call the new registration method
+    this.registerWithUserId();
   }
 
   send(message) {
@@ -121,14 +118,8 @@ export class WebSocketClient {
     }
 
     try {
-      // Include interaction mode in all messages if available
-      const messageWithMode = {
-        ...message,
-        interactionMode: this.interactionMode
-      };
-
-      this.ws.send(JSON.stringify(messageWithMode));
-      console.log('WebSocket message sent:', messageWithMode);
+      this.ws.send(JSON.stringify(message));
+      console.log('WebSocket message sent:', message);
     } catch (error) {
       console.error('Failed to send WebSocket message:', error);
     }
@@ -193,7 +184,6 @@ export class WebSocketClient {
       this.ws.close(1000, 'Client disconnect');
       this.ws = null;
       this.isConnected = false;
-      this.interactionMode = null; // Clear interaction mode on disconnect
     }
   }
 }

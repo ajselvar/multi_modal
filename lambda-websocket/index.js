@@ -67,24 +67,30 @@ async function handleConnect(connectionId, queryStringParameters) {
   console.log('Query parameters:', queryStringParameters);
   console.log('Table name:', TABLE_NAME);
   
-  // Extract interaction mode from query parameters, default to voice-chat for backward compatibility
-  const interactionMode = queryStringParameters?.interactionMode || 'voice-chat';
-  console.log('Interaction mode:', interactionMode);
+  // Extract userId from query parameters if provided
+  const userId = queryStringParameters?.userId;
+  console.log('UserId:', userId);
   
   try {
+    const item = {
+      connectionId,
+      connectedAt: Date.now(),
+      ttl: Math.floor(Date.now() / 1000) + 86400 // 24 hours TTL
+    };
+    
+    // Add userId to the item if provided
+    if (userId) {
+      item.userId = userId;
+    }
+    
     const command = new PutCommand({
       TableName: TABLE_NAME,
-      Item: {
-        connectionId,
-        interactionMode,
-        connectedAt: Date.now(),
-        ttl: Math.floor(Date.now() / 1000) + 86400 // 24 hours TTL
-      }
+      Item: item
     });
     
     console.log('Sending PutCommand to DynamoDB');
     await docClient.send(command);
-    console.log(`Connection ${connectionId} stored successfully with mode ${interactionMode}`);
+    console.log(`Connection ${connectionId} stored successfully${userId ? ` with userId ${userId}` : ''}`);
     console.log('=== handleConnect END ===');
     
     return { statusCode: 200, body: 'Connected' };
@@ -133,15 +139,18 @@ async function handleMessage(connectionId, body, domainName, stage) {
   
   console.log('Message received:', message);
   
-  const { action, voiceContactId } = message;
+  const { action, userId, voiceContactId } = message;
   console.log('Action:', action);
-  console.log('voiceContactId:', voiceContactId);
+  console.log('UserId:', userId);
+  console.log('voiceContactId (legacy):', voiceContactId);
   
   try {
     switch (action) {
       case 'register':
         console.log('Calling handleRegister');
-        return await handleRegister(connectionId, voiceContactId);
+        // Support both userId (new) and voiceContactId (legacy) for backward compatibility
+        const registrationId = userId || voiceContactId;
+        return await handleRegister(connectionId, registrationId, userId ? 'userId' : 'voiceContactId');
       
       case 'ping':
         console.log('Calling sendToConnection for ping');
@@ -160,55 +169,65 @@ async function handleMessage(connectionId, body, domainName, stage) {
   }
 }
 
-async function handleRegister(connectionId, voiceContactId) {
+async function handleRegister(connectionId, registrationId, idType = 'userId') {
   console.log('=== handleRegister START ===');
   console.log('connectionId:', connectionId);
-  console.log('voiceContactId:', voiceContactId);
+  console.log('registrationId:', registrationId);
+  console.log('idType:', idType);
   
-  if (!voiceContactId) {
-    console.warn('No voiceContactId provided');
-    return { statusCode: 400, body: 'voiceContactId required' };
+  if (!registrationId) {
+    console.warn(`No ${idType} provided`);
+    return { statusCode: 400, body: `${idType} required` };
   }
   
-  console.log(`Registering connection ${connectionId} for voice contact ${voiceContactId}`);
+  console.log(`Registering connection ${connectionId} with ${idType} ${registrationId}`);
   console.log('Table name:', TABLE_NAME);
   
   try {
-    // First, get the current connection to retrieve the interaction mode
-    const getCommand = new GetCommand({
-      TableName: TABLE_NAME,
-      Key: { connectionId }
-    });
+    // Build update expression based on ID type
+    let updateExpression, expressionAttributeValues;
     
-    const getResult = await docClient.send(getCommand);
-    const connection = getResult.Item;
-    const interactionMode = connection?.interactionMode || 'voice-chat';
-    
-    console.log('Retrieved interaction mode:', interactionMode);
+    if (idType === 'userId') {
+      updateExpression = 'SET userId = :userId, registeredAt = :registeredAt';
+      expressionAttributeValues = {
+        ':userId': registrationId,
+        ':registeredAt': Date.now()
+      };
+    } else {
+      // Legacy voiceContactId support
+      updateExpression = 'SET voiceContactId = :voiceContactId, registeredAt = :registeredAt';
+      expressionAttributeValues = {
+        ':voiceContactId': registrationId,
+        ':registeredAt': Date.now()
+      };
+    }
     
     const updateCommand = new UpdateCommand({
       TableName: TABLE_NAME,
       Key: { connectionId },
-      UpdateExpression: 'SET voiceContactId = :voiceContactId, registeredAt = :registeredAt',
-      ExpressionAttributeValues: {
-        ':voiceContactId': voiceContactId,
-        ':registeredAt': Date.now()
-      }
+      UpdateExpression: updateExpression,
+      ExpressionAttributeValues: expressionAttributeValues
     });
     
     console.log('Sending UpdateCommand to DynamoDB');
     await docClient.send(updateCommand);
-    console.log(`Connection ${connectionId} registered for voice contact ${voiceContactId} with mode ${interactionMode}`);
+    console.log(`Connection ${connectionId} registered with ${idType} ${registrationId}`);
     
-    // Return the interaction mode information for agent interface
+    const responseBody = {
+      status: 'Registered',
+      connectionId: connectionId
+    };
+    
+    // Include the appropriate ID in response
+    if (idType === 'userId') {
+      responseBody.userId = registrationId;
+    } else {
+      responseBody.voiceContactId = registrationId;
+    }
+    
     const response = {
       statusCode: 200,
-      body: JSON.stringify({
-        status: 'Registered',
-        interactionMode: interactionMode,
-        voiceContactId: voiceContactId,
-        connectionId: connectionId
-      })
+      body: JSON.stringify(responseBody)
     };
     
     console.log('=== handleRegister END ===');
@@ -265,7 +284,34 @@ async function sendToConnection(connectionId, domainName, stage, data) {
 }
 
 // Export helper functions for use by other Lambda functions (e.g., EventBridge handler)
+exports.findConnectionByUserId = async function(userId) {
+  console.log(`Looking up connection by userId: ${userId}`);
+  
+  const command = new QueryCommand({
+    TableName: TABLE_NAME,
+    IndexName: 'userIdIndex',
+    KeyConditionExpression: 'userId = :userId',
+    ExpressionAttributeValues: {
+      ':userId': userId
+    }
+  });
+  
+  const result = await docClient.send(command);
+  const connection = result.Items && result.Items.length > 0 ? result.Items[0] : null;
+  
+  if (connection) {
+    console.log(`Found connection ${connection.connectionId}`);
+  } else {
+    console.log(`No connection found for userId: ${userId}`);
+  }
+  
+  return connection;
+};
+
+// Keep legacy function for backward compatibility
 exports.findConnectionByVoiceContactId = async function(voiceContactId) {
+  console.log(`Looking up connection by voiceContactId (legacy): ${voiceContactId}`);
+  
   const command = new QueryCommand({
     TableName: TABLE_NAME,
     IndexName: 'voiceContactIdIndex',
@@ -278,38 +324,15 @@ exports.findConnectionByVoiceContactId = async function(voiceContactId) {
   const result = await docClient.send(command);
   const connection = result.Items && result.Items.length > 0 ? result.Items[0] : null;
   
-  // Include interaction mode in the returned connection data
   if (connection) {
-    console.log(`Found connection ${connection.connectionId} with interaction mode: ${connection.interactionMode || 'voice-chat'}`);
+    console.log(`Found connection ${connection.connectionId}`);
+  } else {
+    console.log(`No connection found for voiceContactId: ${voiceContactId}`);
   }
   
   return connection;
 };
 
 exports.sendMessageToConnection = async function(connectionId, domainName, stage, message) {
-  // Get connection details to include interaction mode in the message
-  try {
-    const getCommand = new GetCommand({
-      TableName: TABLE_NAME,
-      Key: { connectionId }
-    });
-    
-    const getResult = await docClient.send(getCommand);
-    const connection = getResult.Item;
-    
-    // Enhance message with interaction mode if connection exists
-    if (connection && connection.interactionMode) {
-      const enhancedMessage = {
-        ...message,
-        interactionMode: connection.interactionMode
-      };
-      console.log(`Sending message with interaction mode: ${connection.interactionMode}`);
-      return await sendToConnection(connectionId, domainName, stage, enhancedMessage);
-    }
-  } catch (error) {
-    console.warn('Could not retrieve connection details for mode information:', error);
-  }
-  
-  // Fallback to original message if we can't get connection details
   return await sendToConnection(connectionId, domainName, stage, message);
 };

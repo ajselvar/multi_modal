@@ -187,11 +187,20 @@ function handler(event) {
       timeToLiveAttribute: 'ttl'
     });
 
-    // Add GSI for querying by voiceContactId
+    // Add GSI for querying by voiceContactId (existing)
     this.connectionsTable.addGlobalSecondaryIndex({
       indexName: 'voiceContactIdIndex',
       partitionKey: {
         name: 'voiceContactId',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
+    // Add new GSI for querying by userId
+    this.connectionsTable.addGlobalSecondaryIndex({
+      indexName: 'userIdIndex',
+      partitionKey: {
+        name: 'userId',
         type: dynamodb.AttributeType.STRING
       }
     });

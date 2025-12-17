@@ -321,6 +321,7 @@ function toggleCallButtons(callActive) {
 
 function showContinueChatButton(show) {
   const continueChatBtn = document.getElementById('continue-chat-btn');
+  
   if (continueChatBtn) {
     continueChatBtn.style.display = show ? 'flex' : 'none';
   }

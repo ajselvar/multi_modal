@@ -1,7 +1,7 @@
-const { ConnectClient, StartChatContactCommand } = require('@aws-sdk/client-connect');
+const { ConnectClient, StartChatContactCommand, DescribeContactCommand } = require('@aws-sdk/client-connect');
+const { ApiGatewayManagementApiClient, PostToConnectionCommand } = require('@aws-sdk/client-apigatewaymanagementapi');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, QueryCommand } = require('@aws-sdk/lib-dynamodb');
-const { ApiGatewayManagementApiClient, PostToConnectionCommand } = require('@aws-sdk/client-apigatewaymanagementapi');
 
 const connectClient = new ConnectClient({});
 const dynamoClient = new DynamoDBClient({});
@@ -10,6 +10,25 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
 const INSTANCE_ID = process.env.CONNECT_INSTANCE_ID;
 const TABLE_NAME = process.env.CONNECTIONS_TABLE_NAME;
 const WEBSOCKET_ENDPOINT = process.env.WEBSOCKET_API_ENDPOINT;
+
+// Helper function to extract UserId from contact attributes
+async function getUserIdFromContact(contactId) {
+  console.log('Fetching contact attributes from DescribeContact API...');
+  try {
+    const describeCommand = new DescribeContactCommand({
+      InstanceId: INSTANCE_ID,
+      ContactId: contactId
+    });
+    const contactDetails = await connectClient.send(describeCommand);
+    console.log('Contact details from DescribeContact:', JSON.stringify(contactDetails.Contact?.Attributes, null, 2));
+    const userId = contactDetails.Contact?.Attributes?.userId;
+    console.log('Extracted UserId from DescribeContact:', userId);
+    return userId;
+  } catch (error) {
+    console.error('Failed to describe contact:', error);
+    return null;
+  }
+}
 
 exports.handler = async (event) => {
   console.log('=== Contact Event Handler ===');
@@ -32,20 +51,34 @@ exports.handler = async (event) => {
         // Voice agent connected - create chat contact
         console.log('Voice agent connected - creating chat contact');
         
-        // Find WebSocket connection for this voice contact
-        console.log('Looking up WebSocket connection for voice contact:', contactId);
-        const connection = await findConnectionByVoiceContactId(contactId);
+        // Extract UserId from contact attributes
+        const userId = await getUserIdFromContact(contactId);
+        
+        if (!userId) {
+          console.warn('=== MISSING USERID ERROR ===');
+          console.warn('No UserId found in contact attributes for voice contact:', contactId);
+          console.warn('This may indicate that the frontend did not properly set the UserId in contact attributes');
+          console.warn('Skipping WebSocket notification for this contact');
+          return { statusCode: 200, body: 'No UserId found in contact attributes - skipping notification' };
+        }
+        
+        // Find WebSocket connection using UserId
+        console.log('Looking up WebSocket connection for UserId:', userId);
+        const connection = await findConnectionByUserId(userId);
         
         if (!connection) {
-          console.warn('No WebSocket connection found for voice contact:', contactId);
-          return { statusCode: 200, body: 'No WebSocket connection found' };
+          console.warn('=== CONNECTION NOT FOUND (VOICE) ===');
+          console.warn('No WebSocket connection found for UserId:', userId);
+          console.warn('This may indicate that the user disconnected or the connection was not properly registered');
+          console.warn('Skipping WebSocket notification for this voice contact');
+          return { statusCode: 200, body: 'No WebSocket connection found - user may have disconnected' };
         }
         
         console.log('Found WebSocket connection:', connection.connectionId);
         
         // Create chat contact with voice contactId as related contact
         console.log('Creating chat contact...');
-        const chatContact = await createChatContact(contactId, connection.interactionMode || 'voice-chat');
+        const chatContact = await createChatContact(contactId);
         
         console.log('Chat contact created:', {
           contactId: chatContact.ContactId,
@@ -60,7 +93,7 @@ exports.handler = async (event) => {
           participantId: chatContact.ParticipantId,
           participantToken: chatContact.ParticipantToken,
           voiceContactId: contactId,
-          interactionMode: connection.interactionMode || 'voice-chat'
+          userId: userId
         });
         
         console.log('Successfully processed voice CONNECTED_TO_AGENT event');
@@ -69,43 +102,31 @@ exports.handler = async (event) => {
       } else if (channel === 'CHAT') {
         // Chat agent connected - notify frontend
         console.log('Chat agent connected - notifying frontend');
-        console.log('Chat contact attributes:', JSON.stringify(detail.attributes, null, 2));
         
-        // Try to find the related voice contact from attributes
-        let relatedContactId = detail.attributes?.relatedContactId;
+        // Extract UserId from contact attributes
+        const userId = await getUserIdFromContact(contactId);
         
-        // If not in attributes, try to get it from the contact using DescribeContact API
-        if (!relatedContactId) {
-          console.log('relatedContactId not in event attributes, fetching from DescribeContact API...');
-          try {
-            const { DescribeContactCommand } = require('@aws-sdk/client-connect');
-            const describeCommand = new DescribeContactCommand({
-              InstanceId: INSTANCE_ID,
-              ContactId: contactId
-            });
-            const contactDetails = await connectClient.send(describeCommand);
-            console.log('Contact details:', JSON.stringify(contactDetails, null, 2));
-            relatedContactId = contactDetails.Contact?.Attributes?.relatedContactId;
-          } catch (error) {
-            console.error('Failed to describe contact:', error);
-          }
+        if (!userId) {
+          console.warn('=== MISSING USERID ERROR ===');
+          console.warn('No UserId found in chat contact attributes');
+          console.warn('Contact ID:', contactId);
+          console.warn('This may indicate that the chat contact was not created with proper UserId attributes');
+          console.warn('Skipping WebSocket notification for this contact');
+          return { statusCode: 200, body: 'No UserId found in contact attributes - skipping notification' };
         }
         
-        if (!relatedContactId) {
-          console.warn('No relatedContactId found in chat contact - cannot determine voice contact');
-          console.warn('Event detail:', JSON.stringify(detail, null, 2));
-          return { statusCode: 200, body: 'No related contact' };
-        }
+        console.log('Found UserId:', userId);
         
-        console.log('Found relatedContactId:', relatedContactId);
-        
-        // Find WebSocket connection for the voice contact
-        console.log('Looking up WebSocket connection for voice contact:', relatedContactId);
-        const connection = await findConnectionByVoiceContactId(relatedContactId);
+        // Find WebSocket connection using UserId
+        console.log('Looking up WebSocket connection for UserId:', userId);
+        const connection = await findConnectionByUserId(userId);
         
         if (!connection) {
-          console.warn('No WebSocket connection found for voice contact:', relatedContactId);
-          return { statusCode: 200, body: 'No WebSocket connection found' };
+          console.warn('=== CONNECTION NOT FOUND (CHAT) ===');
+          console.warn('No WebSocket connection found for UserId:', userId);
+          console.warn('This may indicate that the user disconnected or the connection was not properly registered');
+          console.warn('Skipping WebSocket notification for this chat contact');
+          return { statusCode: 200, body: 'No WebSocket connection found - user may have disconnected' };
         }
         
         console.log('Found WebSocket connection:', connection.connectionId);
@@ -115,8 +136,7 @@ exports.handler = async (event) => {
         await sendToWebSocket(connection.connectionId, {
           type: 'CHAT_AGENT_CONNECTED',
           chatContactId: contactId,
-          voiceContactId: relatedContactId,
-          interactionMode: connection.interactionMode || 'voice-chat'
+          userId: userId
         });
         
         console.log('Successfully processed chat CONNECTED_TO_AGENT event');
@@ -134,33 +154,48 @@ exports.handler = async (event) => {
   }
 };
 
-async function findConnectionByVoiceContactId(voiceContactId) {
-  console.log('Querying DynamoDB for voiceContactId:', voiceContactId);
+async function findConnectionByUserId(userId) {
+  console.log(`Looking up connection by userId: ${userId}`);
   
   const command = new QueryCommand({
     TableName: TABLE_NAME,
-    IndexName: 'voiceContactIdIndex',
-    KeyConditionExpression: 'voiceContactId = :voiceContactId',
+    IndexName: 'userIdIndex',
+    KeyConditionExpression: 'userId = :userId',
     ExpressionAttributeValues: {
-      ':voiceContactId': voiceContactId
+      ':userId': userId
     }
   });
   
   const result = await docClient.send(command);
-  console.log('DynamoDB query result:', result.Items?.length || 0, 'items found');
-  
   const connection = result.Items && result.Items.length > 0 ? result.Items[0] : null;
   
-  // Log interaction mode information for session tracking
   if (connection) {
-    console.log(`Found connection ${connection.connectionId} with interaction mode: ${connection.interactionMode || 'voice-chat'}`);
+    console.log(`Found connection ${connection.connectionId}`);
+  } else {
+    console.log(`No connection found for userId: ${userId}`);
   }
   
   return connection;
 }
 
-async function createChatContact(voiceContactId, interactionMode = 'voice-chat') {
-  console.log('Creating chat contact with relatedContactId:', voiceContactId, 'and interaction mode:', interactionMode);
+async function createChatContact(voiceContactId) {
+  console.log('Creating chat contact with relatedContactId:', voiceContactId);
+  
+  // First get the UserId from the voice contact to pass it to the chat contact
+  const userId = await getUserIdFromContact(voiceContactId);
+  console.log('Using UserId for chat contact:', userId);
+  
+  const attributes = {
+    relatedContactId: voiceContactId
+  };
+  
+  // Add UserId to chat contact attributes if available
+  if (userId) {
+    attributes.userId = userId;
+    console.log('Adding UserId to chat contact attributes:', userId);
+  } else {
+    console.warn('No UserId available to add to chat contact attributes');
+  }
   
   const command = new StartChatContactCommand({
     InstanceId: INSTANCE_ID,
@@ -168,14 +203,11 @@ async function createChatContact(voiceContactId, interactionMode = 'voice-chat')
     ParticipantDetails: {
       DisplayName: 'Customer'
     },
-    Attributes: {
-      relatedContactId: voiceContactId,
-      interactionMode: interactionMode
-    }
+    Attributes: attributes
   });
   
   const response = await connectClient.send(command);
-  console.log('Chat contact created successfully with interaction mode:', interactionMode);
+  console.log('Chat contact created successfully with attributes:', attributes);
   
   return {
     ContactId: response.ContactId,

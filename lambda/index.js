@@ -68,10 +68,6 @@ async function handleStartChat(event) {
     }
   }
   
-  // Extract interaction mode from request, default to 'chat-only' for this endpoint
-  const interactionMode = body.interactionMode || 'chat-only';
-  console.log('Creating chat contact with interaction mode:', interactionMode);
-  
   const params = {
     InstanceId: INSTANCE_ID,
     ContactFlowId: CONTACT_FLOW_ID,
@@ -79,7 +75,6 @@ async function handleStartChat(event) {
       DisplayName: body.displayName || 'Customer'
     },
     Attributes: {
-      interactionMode: interactionMode,
       ...(body.attributes || {})
     }
   };
@@ -94,15 +89,13 @@ async function handleStartChat(event) {
   console.log('Chat contact created successfully:', {
     contactId: result.ContactId,
     participantId: result.ParticipantId,
-    hasToken: !!result.ParticipantToken,
-    interactionMode: interactionMode
+    hasToken: !!result.ParticipantToken
   });
   
   const response = {
     contactId: result.ContactId,
     participantId: result.ParticipantId,
-    participantToken: result.ParticipantToken,
-    interactionMode: interactionMode
+    participantToken: result.ParticipantToken
   };
   
   console.log('--- handleStartChat: Success ---');
@@ -123,10 +116,6 @@ async function handleStartVoice(event) {
     }
   }
   
-  // Extract interaction mode from request, default to 'voice-chat' for this endpoint
-  const interactionMode = body.interactionMode || 'voice-chat';
-  console.log('Creating voice contact with interaction mode:', interactionMode);
-  
   const params = {
     InstanceId: INSTANCE_ID,
     ContactFlowId: CONTACT_FLOW_ID,
@@ -134,7 +123,6 @@ async function handleStartVoice(event) {
       DisplayName: body.displayName || 'Customer'
     },
     Attributes: {
-      interactionMode: interactionMode,
       ...(body.attributes || {})
     }
   };
@@ -150,16 +138,14 @@ async function handleStartVoice(event) {
     contactId: result.ContactId,
     participantId: result.ParticipantId,
     hasToken: !!result.ParticipantToken,
-    hasConnectionData: !!result.ConnectionData,
-    interactionMode: interactionMode
+    hasConnectionData: !!result.ConnectionData
   });
   
   const response = {
     contactId: result.ContactId,
     participantId: result.ParticipantId,
     participantToken: result.ParticipantToken,
-    connectionData: result.ConnectionData,
-    interactionMode: interactionMode
+    connectionData: result.ConnectionData
   };
   
   console.log('--- handleStartVoice: Success ---');
@@ -186,10 +172,6 @@ async function handleStopContact(event) {
     return createResponse(400, { error: 'contactId is required' });
   }
   
-  // Include interaction mode in session cleanup logging
-  const interactionMode = body.interactionMode || 'unknown';
-  console.log('Stopping contact with interaction mode:', interactionMode);
-  
   const params = {
     InstanceId: INSTANCE_ID,
     ContactId: body.contactId
@@ -203,14 +185,12 @@ async function handleStopContact(event) {
   
   console.log(`Connect API call completed in ${duration}ms`);
   console.log('Contact stopped successfully:', {
-    contactId: body.contactId,
-    interactionMode: interactionMode
+    contactId: body.contactId
   });
   
   const response = {
     success: true,
     contactId: body.contactId,
-    interactionMode: interactionMode,
     message: 'Contact stopped successfully'
   };
   

@@ -5,19 +5,25 @@ import { updateStatus, displayMessage, displayError, callAPI, enableChatInput, s
 export const ChatWidget = {
     session: null,
     contactId: null,
-    interactionMode: null, // 'chat-only' or 'voice-chat'
+    mode: null, // 'chat-only' or 'voice-chat' - for UI management only
 
     async start(mode = 'voice-chat') {
         console.log('--- ChatWidget.start() called with mode:', mode);
         updateStatus('Connecting to chat...');
 
-        // Store the interaction mode
-        this.interactionMode = mode;
+        // Store the mode for UI management
+        this.mode = mode;
 
         try {
-            // Call Lambda to get contact details, include mode in request
+            // Get UserId for this session
+            const { getUserId } = await import('./userId.js');
+            const userId = getUserId();
+            
+            // Call Lambda to get contact details with UserId in attributes
             const contactData = await callAPI('/start-chat-contact', { 
-                interactionMode: mode 
+                attributes: {
+                    userId: userId
+                }
             });
             console.log('Chat contact data received:', contactData);
 
@@ -113,7 +119,7 @@ export const ChatWidget = {
         enableChatInput(false);
 
         // Reset UI elements when session ends
-        if (this.interactionMode === 'chat-only') {
+        if (this.mode === 'chat-only') {
             // For chat-only mode, use centralized reset function
             if (window.resetModeSelection) {
                 window.resetModeSelection();
@@ -123,9 +129,9 @@ export const ChatWidget = {
             }
         }
 
-        // Clear contact ID and interaction mode
+        // Clear contact ID and mode
         this.contactId = null;
-        this.interactionMode = null;
+        this.mode = null;
     },
 
     async end() {
@@ -179,14 +185,14 @@ export const ChatWidget = {
         displayMessage(text, 'customer');
     },
 
-    // Update UI elements based on interaction mode
+    // Update UI elements based on mode
     updateUIForMode() {
-        console.log(`Updating UI for mode: ${this.interactionMode}`);
+        console.log(`Updating UI for mode: ${this.mode}`);
         
-        if (this.interactionMode === 'chat-only') {
+        if (this.mode === 'chat-only') {
             // Hide voice-related UI elements for chat-only mode
             this.hideVoiceRelatedElements();
-        } else if (this.interactionMode === 'voice-chat') {
+        } else if (this.mode === 'voice-chat') {
             // Show voice-related UI elements for voice+chat mode
             this.showVoiceRelatedElements();
         }
@@ -233,8 +239,8 @@ export const ChatWidget = {
         console.log('--- ChatWidget.initializeWithDetails() called ---');
         console.log('Contact details:', { contactId, participantId, participantToken, mode });
 
-        // Store the interaction mode
-        this.interactionMode = mode;
+        // Store the mode for UI management
+        this.mode = mode;
 
         try {
             // Store contact ID
