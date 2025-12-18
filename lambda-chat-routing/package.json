@@ -3,7 +3,13 @@
   "version": "1.0.0",
   "description": "Lambda function for chat routing based on related voice contact",
   "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
   "dependencies": {
     "@aws-sdk/client-connect": "^3.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
   }
 }

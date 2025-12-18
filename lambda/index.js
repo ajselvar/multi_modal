@@ -75,6 +75,7 @@ async function handleStartChat(event) {
       DisplayName: body.displayName || 'Customer'
     },
     Attributes: {
+      InitiationMethod: 'Chat',
       ...(body.attributes || {})
     }
   };
@@ -113,7 +114,76 @@ async function handleStartVoice(event) {
       console.log('Parsed request body:', body);
     } catch (e) {
       console.warn('Failed to parse request body:', e.message);
+      return createResponse(400, { 
+        error: 'Invalid request body',
+        errorCode: 'INVALID_REQUEST_BODY',
+        message: 'Request body must be valid JSON'
+      });
     }
+  }
+  
+  // Validate related chat contact if provided (for escalation)
+  if (body.relatedContactId) {
+    console.log('Validating related chat contact:', body.relatedContactId);
+    
+    try {
+      const validateParams = {
+        InstanceId: INSTANCE_ID,
+        ContactId: body.relatedContactId
+      };
+      
+      const contactDetails = await connect.describeContact(validateParams).promise();
+      console.log('Related contact details:', {
+        contactId: contactDetails.Contact.Id,
+        channel: contactDetails.Contact.Channel,
+        state: contactDetails.Contact.State
+      });
+      
+      // Validate that the related contact is a chat contact
+      if (contactDetails.Contact.Channel !== 'CHAT') {
+        console.error('Related contact is not a chat contact:', contactDetails.Contact.Channel);
+        return createResponse(400, {
+          error: 'Related contact must be a chat contact',
+          errorCode: 'INVALID_RELATED_CONTACT_TYPE',
+          message: 'The specified related contact is not a chat contact'
+        });
+      }
+      
+      // Note: Allowing escalation regardless of chat contact state
+      
+      console.log('Related chat contact validation successful');
+    } catch (error) {
+      console.error('Failed to validate related contact:', error);
+      
+      if (error.code === 'ResourceNotFoundException') {
+        return createResponse(400, {
+          error: 'Related contact not found',
+          errorCode: 'RELATED_CONTACT_NOT_FOUND',
+          message: 'The specified chat contact does not exist'
+        });
+      }
+      
+      return createResponse(500, {
+        error: 'Failed to validate related contact',
+        errorCode: 'VALIDATION_ERROR',
+        message: error.message
+      });
+    }
+  }
+  
+  // Prepare attributes for voice contact
+  const attributes = {
+    ...(body.attributes || {})
+  };
+  
+  // Set InitiationMethod based on whether this is an escalated contact
+  if (body.relatedContactId) {
+    attributes.InitiationMethod = 'Chat';
+    attributes.relatedContactId = body.relatedContactId;
+    console.log('Setting InitiationMethod to "Chat" for escalated voice contact');
+  } else {
+    attributes.InitiationMethod = 'Voice';
+    console.log('Setting InitiationMethod to "Voice" for voice+chat interaction');
   }
   
   const params = {
@@ -122,9 +192,7 @@ async function handleStartVoice(event) {
     ParticipantDetails: {
       DisplayName: body.displayName || 'Customer'
     },
-    Attributes: {
-      ...(body.attributes || {})
-    }
+    Attributes: attributes
   };
   
   console.log('Calling Connect StartWebRTCContact API with params:', JSON.stringify(params, null, 2));
@@ -138,14 +206,17 @@ async function handleStartVoice(event) {
     contactId: result.ContactId,
     participantId: result.ParticipantId,
     hasToken: !!result.ParticipantToken,
-    hasConnectionData: !!result.ConnectionData
+    hasConnectionData: !!result.ConnectionData,
+    isEscalated: !!body.relatedContactId
   });
   
+  // Return complete response data including escalation context
   const response = {
     contactId: result.ContactId,
     participantId: result.ParticipantId,
     participantToken: result.ParticipantToken,
-    connectionData: result.ConnectionData
+    connectionData: result.ConnectionData,
+    interactionMode: body.relatedContactId ? 'escalated' : 'voice-chat'
   };
   
   console.log('--- handleStartVoice: Success ---');

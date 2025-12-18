@@ -74,7 +74,7 @@ async function initializeChatOnly() {
       endChatBtn.style.display = 'flex';
     }
     
-    displayMessage('✓ Chat-only session started. You can type messages below.', 'system');
+    // No need for additional message here - ChatWidget.handleConnected() already shows the appropriate message
   } catch (error) {
     console.error('Failed to initialize chat-only mode:', error);
     resetModeSelection();
@@ -160,7 +160,7 @@ wsClient.onMessage('chatContactCreated', (message) => {
 
   // Pass the selected mode to chat initialization
   ChatWidget.initializeWithDetails(contactId, participantId, participantToken, AppState.selectedMode);
-  displayMessage('✓ Chat automatically connected! You can now type messages.', 'system');
+  // No need for additional message here - ChatWidget.handleConnected() already shows the appropriate message
 });
 
 wsClient.onMessage('error', (message) => {

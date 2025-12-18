@@ -147,6 +147,7 @@ function handler(event) {
           'connect:StartChatContact',
           'connect:StartWebRTCContact',
           'connect:StopContact',
+          'connect:DescribeContact',
         ],
         resources: ['*'],
       })

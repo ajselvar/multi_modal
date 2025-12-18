@@ -6,7 +6,6 @@ import {
   LogLevel,
   MeetingSessionConfiguration
 } from 'amazon-chime-sdk-js';
-import { config } from './config.js';
 import { updateStatus, displayMessage, displayError, callAPI, showCallBanner, toggleCallButtons } from './app.js';
 import { wsClient } from './websocket.js';
 
@@ -133,7 +132,7 @@ export const VoiceWidget = {
     console.log('Voice connection established');
     updateStatus('Voice call active');
     
-    displayMessage('✓ Voice call connected. You can now speak!', 'system');
+    displayMessage('✓ Voice call started. Waiting for agent to connect!', 'system');
 
     // Show call active banner and toggle buttons
     showCallBanner(true);
@@ -158,7 +157,7 @@ export const VoiceWidget = {
       this.chatContactDetails.participantToken
     );
     
-    displayMessage('✓ Chat session started. Waiting for agent to join...', 'system');
+    // No need for additional message here - ChatWidget.handleConnected() already shows the appropriate message
   },
 
   async handleChatAgentConnected(message) {

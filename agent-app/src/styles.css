@@ -226,6 +226,150 @@ body {
     background: #f8d7da;
 }
 
+/* Escalation Styles */
+.escalation-notifications-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    max-width: 400px;
+}
+
+.escalation-notification {
+    background: white;
+    border: 2px solid #ff9900;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    margin-bottom: 10px;
+    animation: slideIn 0.3s ease-out;
+}
+
+.escalation-notification.info {
+    border-color: #17a2b8;
+}
+
+.escalation-notification.info .escalation-header {
+    background: #17a2b8;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.escalation-header {
+    background: #ff9900;
+    color: white;
+    padding: 12px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 6px 6px 0 0;
+}
+
+.escalation-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.escalation-close {
+    cursor: pointer;
+    font-size: 20px;
+    font-weight: bold;
+    padding: 0 5px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.escalation-close:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.escalation-content {
+    padding: 15px;
+}
+
+.escalation-content p {
+    margin: 8px 0;
+    font-size: 14px;
+}
+
+.escalation-content strong {
+    color: #333;
+}
+
+/* Removed escalation action buttons - CCP handles accept/reject */
+
+/* Contact Card Escalation Styles */
+.contact-card.escalated {
+    border-color: #ff9900;
+    background: #fff8f0;
+}
+
+.escalation-badge {
+    display: inline-block;
+    background: #ff9900;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 5px;
+}
+
+.related-escalation-badge {
+    display: inline-block;
+    background: #17a2b8;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 5px;
+}
+
+.escalation-info {
+    font-size: 11px;
+    color: #666;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+/* Detail Sections */
+.detail-section {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 2px solid #f0f0f0;
+}
+
+.detail-section h3 {
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: #333;
+}
+
+.escalation-section {
+    border-top-color: #ff9900;
+}
+
+.escalation-section h3 {
+    color: #ff9900;
+}
+
+.related-escalation-section {
+    border-top-color: #17a2b8;
+}
+
+.related-escalation-section h3 {
+    color: #17a2b8;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
     width: 8px;

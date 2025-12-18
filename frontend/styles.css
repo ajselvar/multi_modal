@@ -661,6 +661,26 @@ body {
     box-shadow: 0 4px 16px rgba(108, 117, 125, 0.3);
 }
 
+/* Escalation button styling */
+.escalate-btn {
+    background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
+    color: white;
+    border-color: #ff6b35;
+}
+
+.escalate-btn:hover {
+    background: linear-gradient(135deg, #e55a2b 0%, #ff6b35 100%);
+    box-shadow: 0 4px 16px rgba(255, 107, 53, 0.3);
+}
+
+.escalate-btn:disabled {
+    background: linear-gradient(135deg, #ccc 0%, #ddd 100%);
+    color: #666;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 #end-call-options {
     display: flex;
     gap: 0.75rem;

@@ -109,7 +109,7 @@ function initApp() {
     sendMessageBtn.addEventListener('click', () => {
       const input = document.getElementById('chat-input');
       if (input && input.value && !input.disabled) {
-        ChatWidget.sendMessage(input.value);
+        sendMessageToActiveWidget(input.value);
         input.value = '';
       }
     });
@@ -118,7 +118,7 @@ function initApp() {
   if (chatInput) {
     chatInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter' && !chatInput.disabled && chatInput.value) {
-        ChatWidget.sendMessage(chatInput.value);
+        sendMessageToActiveWidget(chatInput.value);
         chatInput.value = '';
       }
     });
@@ -354,8 +354,34 @@ function enableChatInput(enabled) {
   }
 }
 
+// Smart message routing function
+async function sendMessageToActiveWidget(message) {
+  try {
+    // First check if EscalationWidget is active (has priority during escalated sessions)
+    const { EscalationWidget } = await import('./escalation.js');
+    if (EscalationWidget.chatSession) {
+      console.log('Routing message to EscalationWidget');
+      EscalationWidget.sendMessage(message);
+      return;
+    }
+  } catch (error) {
+    console.log('EscalationWidget not available or not active');
+  }
+  
+  // Fall back to ChatWidget if EscalationWidget is not active
+  if (ChatWidget.session) {
+    console.log('Routing message to ChatWidget');
+    ChatWidget.sendMessage(message);
+    return;
+  }
+  
+  // No active session
+  console.error('No active chat session');
+  displayError('No active chat session');
+}
+
 // Export additional UI helper functions
-export { updateStatus, displayMessage, displayError, callAPI, showCallBanner, toggleCallButtons, enableChatInput, showContinueChatButton, showEndChatButton, showModeSelection };
+export { updateStatus, displayMessage, displayError, callAPI, showCallBanner, toggleCallButtons, enableChatInput, showContinueChatButton, showEndChatButton, showModeSelection, sendMessageToActiveWidget, endChat, startChatOnly, startVoiceWithChat };
 
 function displayMessage(message, sender = 'system', senderName = null) {
   const container = document.getElementById('chat-messages');

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escalation Widget Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Escalation Widget Test</h1>
+    <p>This page tests the EscalationWidget functionality for chat-to-voice escalation.</p>
+
+    <div class="test-section">
+        <h2>Test Status</h2>
+        <div id="status" class="status info">Ready to test</div>
+        <div id="log" class="log"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>EscalationWidget Tests</h2>
+        <button class="test-button" onclick="testEscalationWidgetImport()">Test Import</button>
+        <button class="test-button" onclick="testEscalationWidgetMethods()">Test Methods</button>
+        <button class="test-button" onclick="testEscalationWidgetState()">Test State Management</button>
+        <button class="test-button" onclick="runAllTests()">Run All Tests</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Integration Tests</h2>
+        <button class="test-button" onclick="testChatToEscalationTransition()">Test Chat → Escalation Transition</button>
+        <button class="test-button" onclick="testEscalationToChatTransition()">Test Escalation → Chat Transition</button>
+        <button class="test-button" onclick="testEscalationCleanup()">Test Cleanup</button>
+    </div>
+
+    <script type="module">
+        let testResults = [];
+        
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+            log(`STATUS: ${message}`);
+        }
+        
+        async function testEscalationWidgetImport() {
+            try {
+                updateStatus('Testing EscalationWidget import...', 'info');
+                
+                const { EscalationWidget } = await import('./escalation.js');
+                
+                if (!EscalationWidget) {
+                    throw new Error('EscalationWidget not exported');
+                }
+                
+                // Check required methods exist
+                const requiredMethods = [
+                    'initializeWithChatSession',
+                    'startVoiceConnection',
+                    'sendMessage',
+                    'continueInChatOnly',
+                    'endEscalatedSession',
+                    'transitionToChatOnly'
+                ];
+                
+                for (const method of requiredMethods) {
+                    if (typeof EscalationWidget[method] !== 'function') {
+                        throw new Error(`Missing required method: ${method}`);
+                    }
+                }
+                
+                log('✓ EscalationWidget import successful');
+                log('✓ All required methods present');
+                updateStatus('EscalationWidget import test passed', 'success');
+                testResults.push({ test: 'Import', result: 'PASS' });
+                
+            } catch (error) {
+                log(`✗ EscalationWidget import failed: ${error.message}`);
+                updateStatus('EscalationWidget import test failed', 'error');
+                testResults.push({ test: 'Import', result: 'FAIL', error: error.message });
+            }
+        }
+        
+        async function testEscalationWidgetMethods() {
+            try {
+                updateStatus('Testing EscalationWidget methods...', 'info');
+                
+                const { EscalationWidget } = await import('./escalation.js');
+                
+                // Test initial state
+                if (EscalationWidget.chatSession !== null) {
+                    throw new Error('Initial chatSession should be null');
+                }
+                
+                if (EscalationWidget.escalationActive !== false) {
+                    throw new Error('Initial escalationActive should be false');
+                }
+                
+                // Test cleanup method
+                EscalationWidget.cleanup();
+                
+                log('✓ Initial state correct');
+                log('✓ Cleanup method works');
+                updateStatus('EscalationWidget methods test passed', 'success');
+                testResults.push({ test: 'Methods', result: 'PASS' });
+                
+            } catch (error) {
+                log(`✗ EscalationWidget methods test failed: ${error.message}`);
+                updateStatus('EscalationWidget methods test failed', 'error');
+                testResults.push({ test: 'Methods', result: 'FAIL', error: error.message });
+            }
+        }
+        
+        async function testEscalationWidgetState() {
+            try {
+                updateStatus('Testing EscalationWidget state management...', 'info');
+                
+                const { EscalationWidget } = await import('./escalation.js');
+                
+                // Mock chat session
+                const mockChatSession = {
+                    sendMessage: () => {},
+                    disconnectParticipant: () => {}
+                };
+                
+                // Test initialization
+                await EscalationWidget.initializeWithChatSession(mockChatSession, 'test-contact-123');
+                
+                if (EscalationWidget.chatSession !== mockChatSession) {
+                    throw new Error('Chat session not properly stored');
+                }
+                
+                if (EscalationWidget.chatContactId !== 'test-contact-123') {
+                    throw new Error('Chat contact ID not properly stored');
+                }
+                
+                if (EscalationWidget.mode !== 'escalated') {
+                    throw new Error('Mode should be set to escalated');
+                }
+                
+                // Test cleanup
+                EscalationWidget.cleanup();
+                
+                if (EscalationWidget.chatSession !== null) {
+                    throw new Error('Chat session not cleared after cleanup');
+                }
+                
+                log('✓ State initialization works');
+                log('✓ State cleanup works');
+                updateStatus('EscalationWidget state test passed', 'success');
+                testResults.push({ test: 'State', result: 'PASS' });
+                
+            } catch (error) {
+                log(`✗ EscalationWidget state test failed: ${error.message}`);
+                updateStatus('EscalationWidget state test failed', 'error');
+                testResults.push({ test: 'State', result: 'FAIL', error: error.message });
+            }
+        }
+        
+        async function testChatToEscalationTransition() {
+            try {
+                updateStatus('Testing Chat → Escalation transition...', 'info');
+                
+                const { ChatWidget } = await import('./chat.js');
+                const { EscalationWidget } = await import('./escalation.js');
+                
+                // Mock voice contact data
+                const mockVoiceContactData = {
+                    contactId: 'voice-contact-123',
+                    connectionData: {
+                        Meeting: { MeetingId: 'test-meeting' },
+                        Attendee: { AttendeeId: 'test-attendee' }
+                    }
+                };
+                
+                // Test transition method exists
+                if (typeof ChatWidget.transitionToEscalationWidget !== 'function') {
+                    throw new Error('ChatWidget.transitionToEscalationWidget method not found');
+                }
+                
+                log('✓ Transition method exists');
+                log('✓ Mock data prepared');
+                updateStatus('Chat → Escalation transition test passed', 'success');
+                testResults.push({ test: 'Chat→Escalation', result: 'PASS' });
+                
+            } catch (error) {
+                log(`✗ Chat → Escalation transition test failed: ${error.message}`);
+                updateStatus('Chat → Escalation transition test failed', 'error');
+                testResults.push({ test: 'Chat→Escalation', result: 'FAIL', error: error.message });
+            }
+        }
+        
+        async function testEscalationToChatTransition() {
+            try {
+                updateStatus('Testing Escalation → Chat transition...', 'info');
+                
+                const { EscalationWidget } = await import('./escalation.js');
+                
+                // Test transition method exists
+                if (typeof EscalationWidget.transitionToChatOnly !== 'function') {
+                    throw new Error('EscalationWidget.transitionToChatOnly method not found');
+                }
+                
+                if (typeof EscalationWidget.continueInChatOnly !== 'function') {
+                    throw new Error('EscalationWidget.continueInChatOnly method not found');
+                }
+                
+                log('✓ Transition methods exist');
+                updateStatus('Escalation → Chat transition test passed', 'success');
+                testResults.push({ test: 'Escalation→Chat', result: 'PASS' });
+                
+            } catch (error) {
+                log(`✗ Escalation → Chat transition test failed: ${error.message}`);
+                updateStatus('Escalation → Chat transition test failed', 'error');
+                testResults.push({ test: 'Escalation→Chat', result: 'FAIL', error: error.message });
+            }
+        }
+        
+        async function testEscalationCleanup() {
+            try {
+                updateStatus('Testing escalation cleanup...', 'info');
+                
+                const { EscalationWidget } = await import('./escalation.js');
+                
+                // Set some state
+                EscalationWidget.chatContactId = 'test-123';
+                EscalationWidget.voiceContactId = 'voice-123';
+                EscalationWidget.escalationActive = true;
+                
+                // Test cleanup
+                EscalationWidget.cleanup();
+                
+                if (EscalationWidget.chatContactId !== null) {
+                    throw new Error('Chat contact ID not cleared');
+                }
+                
+                if (EscalationWidget.voiceContactId !== null) {
+                    throw new Error('Voice contact ID not cleared');
+                }
+                
+                if (EscalationWidget.escalationActive !== false) {
+                    throw new Error('Escalation active flag not cleared');
+                }
+                
+                log('✓ All state cleared properly');
+                updateStatus('Escalation cleanup test passed', 'success');
+                testResults.push({ test: 'Cleanup', result: 'PASS' });
+                
+            } catch (error) {
+                log(`✗ Escalation cleanup test failed: ${error.message}`);
+                updateStatus('Escalation cleanup test failed', 'error');
+                testResults.push({ test: 'Cleanup', result: 'FAIL', error: error.message });
+            }
+        }
+        
+        async function runAllTests() {
+            testResults = [];
+            log('=== Running All Tests ===');
+            
+            await testEscalationWidgetImport();
+            await testEscalationWidgetMethods();
+            await testEscalationWidgetState();
+            await testChatToEscalationTransition();
+            await testEscalationToChatTransition();
+            await testEscalationCleanup();
+            
+            // Summary
+            const passed = testResults.filter(r => r.result === 'PASS').length;
+            const failed = testResults.filter(r => r.result === 'FAIL').length;
+            
+            log('=== Test Summary ===');
+            log(`Total: ${testResults.length}, Passed: ${passed}, Failed: ${failed}`);
+            
+            if (failed === 0) {
+                updateStatus(`All tests passed! (${passed}/${testResults.length})`, 'success');
+            } else {
+                updateStatus(`${failed} test(s) failed (${passed}/${testResults.length})`, 'error');
+            }
+            
+            // Log failed tests
+            testResults.filter(r => r.result === 'FAIL').forEach(test => {
+                log(`FAILED: ${test.test} - ${test.error}`);
+            });
+        }
+        
+        // Make functions available globally
+        window.testEscalationWidgetImport = testEscalationWidgetImport;
+        window.testEscalationWidgetMethods = testEscalationWidgetMethods;
+        window.testEscalationWidgetState = testEscalationWidgetState;
+        window.testChatToEscalationTransition = testChatToEscalationTransition;
+        window.testEscalationToChatTransition = testEscalationToChatTransition;
+        window.testEscalationCleanup = testEscalationCleanup;
+        window.runAllTests = runAllTests;
+        
+        // Auto-run tests on load
+        document.addEventListener('DOMContentLoaded', () => {
+            log('Escalation Widget Test Page Loaded');
+            log('Click "Run All Tests" to start testing');
+        });
+    </script>
+</body>
+</html>

@@ -125,6 +125,9 @@ function handleContactEvent(contact) {
     if (contactType === connect.ContactType.VOICE) {
         AppState.voiceContactIds.add(contactId);
         log(`Added voice contact to tracking: ${contactId}`, 'info');
+        
+        // Check if this is an escalated voice contact
+        checkEscalatedVoiceContact(contact);
     }
     
     // Check if this is a chat contact that should be auto-accepted immediately
@@ -163,6 +166,9 @@ function handleContactIncoming(contact) {
     // Check if this is a chat contact with a related voice contact
     if (contactType === connect.ContactType.CHAT) {
         checkAndAutoAcceptChat(contact);
+    } else if (contactType === connect.ContactType.VOICE) {
+        // Check if this is an escalated voice contact that needs manual handling
+        handleEscalatedVoiceIncoming(contact);
     }
     
     updateContactsList();
@@ -217,25 +223,162 @@ async function checkAndAutoAcceptChat(contact) {
     }
 }
 
+// Check if this is an escalated voice contact
+function checkEscalatedVoiceContact(contact) {
+    try {
+        const contactId = contact.getContactId();
+        const attributes = contact.getAttributes();
+        
+        // Check for relatedContactId attribute indicating escalation
+        const relatedContactId = attributes.relatedContactId?.value || attributes.RelatedContactId?.value;
+        
+        if (relatedContactId) {
+            log(`Escalated voice contact detected: ${contactId} related to chat: ${relatedContactId}`, 'info');
+            
+            // Mark this contact as escalated for UI handling
+            if (!AppState.escalatedContacts) {
+                AppState.escalatedContacts = new Map();
+            }
+            AppState.escalatedContacts.set(contactId, {
+                relatedContactId: relatedContactId,
+                type: 'voice',
+                requiresManualAccept: true
+            });
+            
+            log(`Marked voice contact ${contactId} as escalated`, 'info');
+        }
+    } catch (error) {
+        log(`Error checking escalated voice contact: ${error.message}`, 'error');
+    }
+}
+
+// Handle incoming escalated voice contact
+function handleEscalatedVoiceIncoming(contact) {
+    const contactId = contact.getContactId();
+    
+    // Check if this is an escalated contact
+    if (AppState.escalatedContacts && AppState.escalatedContacts.has(contactId)) {
+        const escalationInfo = AppState.escalatedContacts.get(contactId);
+        log(`Incoming escalated voice contact: ${contactId} (related to chat: ${escalationInfo.relatedContactId})`, 'info');
+        log(`Escalated voice contact will be presented in CCP for manual accept/reject`, 'info');
+        
+        // Show informational notification about the escalation
+        showEscalationInfo(contact, escalationInfo);
+    }
+}
+
+// Show informational notification about escalation
+function showEscalationInfo(contact, escalationInfo) {
+    const contactId = contact.getContactId();
+    
+    log(`Showing escalation info for voice contact: ${contactId}`, 'info');
+    
+    // Create informational notification element
+    const notification = document.createElement('div');
+    notification.className = 'escalation-notification info';
+    notification.id = `escalation-info-${contactId}`;
+    
+    notification.innerHTML = `
+        <div class="escalation-header">
+            <h3>🔄 Escalated Voice Call</h3>
+            <span class="escalation-close" onclick="dismissEscalationInfo('${contactId}')">&times;</span>
+        </div>
+        <div class="escalation-content">
+            <p><strong>Voice Contact:</strong> ${contactId}</p>
+            <p><strong>Related Chat:</strong> ${escalationInfo.relatedContactId}</p>
+            <p>Customer has escalated from chat to voice. Use the CCP to accept or reject this call. If accepted, you'll handle both chat and voice simultaneously.</p>
+        </div>
+    `;
+    
+    // Add to notifications container
+    let container = document.getElementById('escalation-notifications');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'escalation-notifications';
+        container.className = 'escalation-notifications-container';
+        document.body.appendChild(container);
+    }
+    
+    container.appendChild(notification);
+    
+    // Auto-dismiss after 15 seconds
+    setTimeout(() => {
+        if (document.getElementById(`escalation-info-${contactId}`)) {
+            log(`Auto-dismissing escalation info for ${contactId} after timeout`, 'info');
+            dismissEscalationInfo(contactId);
+        }
+    }, 15000);
+}
+
+// Dismiss escalation info notification
+window.dismissEscalationInfo = function(contactId) {
+    const notification = document.getElementById(`escalation-info-${contactId}`);
+    if (notification) {
+        notification.remove();
+        log(`Dismissed escalation info for ${contactId}`, 'info');
+    }
+};
+
 // Handle contact accepted
 function handleContactAccepted(contact) {
-    log(`Contact accepted: ${contact.getContactId()}`, 'success');
+    const contactId = contact.getContactId();
+    const contactType = contact.getType();
+    
+    log(`Contact accepted: ${contactId} (${contactType})`, 'success');
+    
+    // If this is an escalated voice contact, log the simultaneous handling
+    if (contactType === connect.ContactType.VOICE && AppState.escalatedContacts?.has(contactId)) {
+        const escalationInfo = AppState.escalatedContacts.get(contactId);
+        log(`Now handling simultaneous chat and voice interaction:`, 'success');
+        log(`  - Chat Contact: ${escalationInfo.relatedContactId}`, 'success');
+        log(`  - Voice Contact: ${contactId}`, 'success');
+    }
+    
     updateContactsList();
 }
 
 // Handle contact connected
 function handleContactConnected(contact) {
-    log(`Contact connected: ${contact.getContactId()}`, 'success');
+    const contactId = contact.getContactId();
+    const contactType = contact.getType();
+    
+    log(`Contact connected: ${contactId} (${contactType})`, 'success');
+    
+    // If this is an escalated voice contact, confirm voice connection is established
+    if (contactType === connect.ContactType.VOICE && AppState.escalatedContacts?.has(contactId)) {
+        const escalationInfo = AppState.escalatedContacts.get(contactId);
+        log(`Voice connection established for escalated contact ${contactId}`, 'success');
+        log(`Agent can now handle both chat (${escalationInfo.relatedContactId}) and voice (${contactId}) simultaneously`, 'success');
+    }
+    
     updateContactsList();
 }
 
 // Handle contact ended
 function handleContactEnded(contact) {
     const contactId = contact.getContactId();
-    log(`Contact ended: ${contactId}`, 'info');
+    const contactType = contact.getType();
+    
+    log(`Contact ended: ${contactId} (${contactType})`, 'info');
     
     // Remove from voice contacts tracking
     AppState.voiceContactIds.delete(contactId);
+    
+    // Handle escalated contact cleanup
+    if (AppState.escalatedContacts?.has(contactId)) {
+        const escalationInfo = AppState.escalatedContacts.get(contactId);
+        
+        if (contactType === connect.ContactType.VOICE) {
+            log(`Escalated voice contact ended: ${contactId}`, 'info');
+            log(`Chat contact ${escalationInfo.relatedContactId} may still be active`, 'info');
+        }
+        
+        // Remove from escalated contacts tracking
+        AppState.escalatedContacts.delete(contactId);
+        
+        // Dismiss any remaining notifications
+        dismissEscalationInfo(contactId);
+    }
     
     updateContactsList();
 }
@@ -248,6 +391,14 @@ function handleContactDestroy(contact) {
     // Remove from state
     AppState.contacts.delete(contactId);
     AppState.voiceContactIds.delete(contactId);
+    
+    // Remove from escalated contacts tracking
+    if (AppState.escalatedContacts) {
+        AppState.escalatedContacts.delete(contactId);
+    }
+    
+    // Dismiss any remaining notifications
+    dismissEscalationInfo(contactId);
     
     // Clear selection if this was selected
     if (AppState.selectedContactId === contactId) {
@@ -274,13 +425,36 @@ function updateContactsList() {
         const state = contact.getStatus().type;
         const isSelected = contactId === AppState.selectedContactId;
         
+        // Check if this is an escalated contact
+        const isEscalated = AppState.escalatedContacts?.has(contactId);
+        const escalationInfo = isEscalated ? AppState.escalatedContacts.get(contactId) : null;
+        
+        let escalationBadge = '';
+        if (isEscalated) {
+            escalationBadge = '<span class="escalation-badge">🔄 Escalated</span>';
+        }
+        
+        // Check if this contact is related to an escalated contact
+        let relatedEscalation = '';
+        if (AppState.escalatedContacts) {
+            for (const [escalatedId, info] of AppState.escalatedContacts.entries()) {
+                if (info.relatedContactId === contactId) {
+                    relatedEscalation = '<span class="related-escalation-badge">🔗 Related</span>';
+                    break;
+                }
+            }
+        }
+        
         return `
-            <div class="contact-card ${isSelected ? 'selected' : ''}" onclick="selectContact('${contactId}')">
+            <div class="contact-card ${isSelected ? 'selected' : ''} ${isEscalated ? 'escalated' : ''}" onclick="selectContact('${contactId}')">
                 <div class="contact-header">
                     <span class="contact-type ${type.toLowerCase()}">${type}</span>
                     <span class="contact-state">${state}</span>
                 </div>
                 <div class="contact-id">${contactId}</div>
+                ${escalationBadge}
+                ${relatedEscalation}
+                ${escalationInfo ? `<div class="escalation-info">Related: ${escalationInfo.relatedContactId}</div>` : ''}
             </div>
         `;
     }).join('');
@@ -310,6 +484,55 @@ function updateContactDetails() {
     
     const attributes = contact.getAttributes();
     const relatedContactId = attributes.relatedContactId?.value;
+    const initiationMethod = attributes.InitiationMethod?.value;
+    
+    // Check if this is an escalated contact
+    const isEscalated = AppState.escalatedContacts?.has(AppState.selectedContactId);
+    const escalationInfo = isEscalated ? AppState.escalatedContacts.get(AppState.selectedContactId) : null;
+    
+    let escalationSection = '';
+    if (isEscalated) {
+        escalationSection = `
+            <div class="detail-section escalation-section">
+                <h3>🔄 Escalation Details</h3>
+                <div class="detail-row">
+                    <div class="detail-label">Escalation Type:</div>
+                    <div class="detail-value">${escalationInfo.type === 'voice' ? 'Chat → Voice' : 'Unknown'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Related Contact:</div>
+                    <div class="detail-value highlight">${escalationInfo.relatedContactId}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Manual Accept Required:</div>
+                    <div class="detail-value">${escalationInfo.requiresManualAccept ? 'Yes' : 'No'}</div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Check if this contact is related to an escalated contact
+    let relatedEscalationSection = '';
+    if (AppState.escalatedContacts) {
+        for (const [escalatedId, info] of AppState.escalatedContacts.entries()) {
+            if (info.relatedContactId === AppState.selectedContactId) {
+                relatedEscalationSection = `
+                    <div class="detail-section related-escalation-section">
+                        <h3>🔗 Related Escalation</h3>
+                        <div class="detail-row">
+                            <div class="detail-label">Escalated Contact:</div>
+                            <div class="detail-value highlight">${escalatedId}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Escalation Type:</div>
+                            <div class="detail-value">${info.type === 'voice' ? 'Chat → Voice' : 'Unknown'}</div>
+                        </div>
+                    </div>
+                `;
+                break;
+            }
+        }
+    }
     
     container.innerHTML = `
         <div class="detail-row">
@@ -328,6 +551,12 @@ function updateContactDetails() {
             <div class="detail-label">Initial Contact ID:</div>
             <div class="detail-value">${contact.getInitialContactId() || 'N/A'}</div>
         </div>
+        ${initiationMethod ? `
+        <div class="detail-row">
+            <div class="detail-label">Initiation Method:</div>
+            <div class="detail-value">${initiationMethod}</div>
+        </div>
+        ` : ''}
         ${relatedContactId ? `
         <div class="detail-row">
             <div class="detail-label">Related Contact:</div>
@@ -338,6 +567,8 @@ function updateContactDetails() {
             <div class="detail-label">Queue:</div>
             <div class="detail-value">${contact.getQueue()?.name || 'N/A'}</div>
         </div>
+        ${escalationSection}
+        ${relatedEscalationSection}
     `;
 }
 

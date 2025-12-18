@@ -30,6 +30,24 @@ async function getUserIdFromContact(contactId) {
   }
 }
 
+// Helper function to get InitiationMethod from contact attributes
+async function getInitiationMethod(contactId) {
+  console.log('Fetching InitiationMethod from contact attributes...');
+  try {
+    const describeCommand = new DescribeContactCommand({
+      InstanceId: INSTANCE_ID,
+      ContactId: contactId
+    });
+    const contactDetails = await connectClient.send(describeCommand);
+    const initiationMethod = contactDetails.Contact?.Attributes?.InitiationMethod;
+    console.log('Extracted InitiationMethod from DescribeContact:', initiationMethod);
+    return initiationMethod;
+  } catch (error) {
+    console.error('Failed to describe contact for InitiationMethod:', error);
+    return null;
+  }
+}
+
 exports.handler = async (event) => {
   console.log('=== Contact Event Handler ===');
   console.log('Event:', JSON.stringify(event, null, 2));
@@ -100,8 +118,8 @@ exports.handler = async (event) => {
         return { statusCode: 200, body: 'Success' };
         
       } else if (channel === 'CHAT') {
-        // Chat agent connected - notify frontend
-        console.log('Chat agent connected - notifying frontend');
+        // Chat agent connected - check for escalation eligibility
+        console.log('Chat agent connected - checking escalation eligibility');
         
         // Extract UserId from contact attributes
         const userId = await getUserIdFromContact(contactId);
@@ -131,7 +149,30 @@ exports.handler = async (event) => {
         
         console.log('Found WebSocket connection:', connection.connectionId);
         
-        // Send agent connected event to frontend
+        // Check InitiationMethod to determine escalation eligibility
+        const initiationMethod = await getInitiationMethod(contactId);
+        console.log('InitiationMethod for chat contact:', initiationMethod);
+        
+        if (initiationMethod === 'Chat') {
+          // This is a chat-only interaction - eligible for escalation
+          console.log('Chat-only interaction detected - sending escalation enablement event');
+          await sendToWebSocket(connection.connectionId, {
+            type: 'ENABLE_ESCALATION',
+            chatContactId: contactId,
+            userId: userId,
+            timestamp: new Date().toISOString()
+          });
+          console.log('Escalation enablement event sent successfully');
+        } else if (initiationMethod === 'Voice') {
+          // This is a voice+chat interaction - no escalation needed
+          console.log('Voice+chat interaction detected - no escalation event sent');
+        } else {
+          // InitiationMethod not found or unexpected value
+          console.warn('InitiationMethod not found or unexpected value:', initiationMethod);
+          console.warn('Defaulting to no escalation event for safety');
+        }
+        
+        // Always send the standard chat agent connected event
         console.log('Sending chat agent connected event to frontend...');
         await sendToWebSocket(connection.connectionId, {
           type: 'CHAT_AGENT_CONNECTED',
