@@ -1,25 +1,81 @@
-# Amazon Connect Multi-Modal Demo
+# Amazon Connect Multi-Modal Customer Interaction Platform
 
-A demonstration application showcasing Amazon Connect's chat and voice capabilities using a simple web interface.
+A production-ready multi-modal customer interaction platform that integrates Amazon Connect chat and WebRTC voice capabilities. The system supports chat-only interactions, voice+chat interactions, and seamless chat-to-voice escalation with agent continuity.
+
+## Features
+
+- **Professional Customer Website**: Hyundai-inspired automotive website with integrated support widget
+- **Multi-Modal Interactions**: Chat-only, voice+chat, and chat-to-voice escalation
+- **Agent Continuity**: Escalated contacts maintain the same agent assignment
+- **Dedicated Agent Application**: Separate interface for contact center operations
+- **Auto-Accept Logic**: Automatic acceptance of related chat contacts
+- **UserId-Based Optimization**: Robust WebSocket connection management
+- **Production-Ready**: Comprehensive error handling and monitoring
 
 ## Project Structure
 
 ```
 .
-├── frontend/           # Static website files
-│   ├── index.html     # Main HTML page
-│   ├── styles.css     # Styling
-│   └── app.js         # Frontend JavaScript
-├── lambda/            # Lambda function code
-│   ├── index.js       # Lambda handler
-│   └── package.json   # Lambda dependencies
-├── infra/             # CDK infrastructure code
-│   ├── bin/           # CDK app entry point
-│   ├── lib/           # CDK stack definitions
-│   ├── cdk.json       # CDK configuration
-│   ├── package.json   # CDK dependencies
-│   └── tsconfig.json  # TypeScript configuration
-└── .kiro/specs/       # Feature specifications
+├── frontend/                    # Customer website (Hyundai-style)
+│   ├── index.html              # Professional automotive website
+│   ├── styles.css              # Professional styling with animations
+│   ├── app.js                  # Main application logic
+│   ├── main.js                 # Application entry point
+│   ├── chat.js                 # Chat widget implementation
+│   ├── voice.js                # Voice widget implementation
+│   ├── escalation.js           # Escalation widget for chat-to-voice
+│   ├── websocket.js            # WebSocket communication
+│   ├── userId.js               # UserId generation and management
+│   ├── config.js               # Frontend configuration
+│   ├── package.json            # Frontend dependencies
+│   ├── vite.config.js          # Build configuration
+│   └── dist/                   # Built frontend files
+│
+├── agent-app/                  # Dedicated agent application
+│   ├── index.html              # Agent interface structure
+│   ├── src/
+│   │   ├── main.js             # Agent application logic
+│   │   └── config.js           # Agent configuration
+│   ├── package.json            # Agent app dependencies
+│   ├── vite.config.js          # Agent build configuration
+│   └── dist/                   # Built agent application
+│
+├── lambda/                     # Contact creation Lambda
+│   ├── index.js                # API Lambda handler
+│   └── package.json            # Lambda dependencies
+│
+├── lambda-websocket/           # WebSocket management Lambda
+│   ├── index.js                # WebSocket connection handler
+│   └── package.json            # WebSocket Lambda dependencies
+│
+├── lambda-contact-event/       # Contact event processing Lambda
+│   ├── index.js                # Event processing handler
+│   └── package.json            # Event Lambda dependencies
+│
+├── lambda-chat-routing/        # Chat routing Lambda
+│   ├── index.js                # Routing logic handler
+│   └── package.json            # Routing Lambda dependencies
+│
+├── infra/                      # CDK infrastructure code
+│   ├── bin/                    # CDK app entry point
+│   ├── lib/                    # CDK stack definitions
+│   ├── cdk.json                # CDK configuration
+│   ├── package.json            # CDK dependencies
+│   ├── tsconfig.json           # TypeScript configuration
+│   └── cdk.out/                # CDK synthesis output
+│
+├── .kiro/specs/                # Feature specifications
+│   ├── chat-only-interaction/  # Chat-only mode specification
+│   ├── chat-to-voice-escalation/ # Escalation feature specification
+│   ├── connect-multimodal-demo/ # Base demo specification
+│   └── websocket-userid-optimization/ # WebSocket optimization spec
+│
+├── tests/                      # Test files
+├── config.json                 # Centralized configuration
+├── deploy.sh                   # Automated deployment script
+├── sync-configs.sh             # Configuration sync script
+├── COMPREHENSIVE_DESIGN.md     # Complete system design document
+└── README.md                   # This file
 ```
 
 ## Prerequisites
@@ -177,13 +233,34 @@ cdk destroy
 
 ## Architecture
 
-- **Customer App**: Static website hosted on S3 with dedicated CloudFront distribution
-- **Agent App**: Separate static website on S3 with dedicated CloudFront distribution
-- **API Gateway**: REST API for frontend-backend communication
-- **WebSocket API**: Real-time communication for chat delivery
-- **Lambda Functions**: Serverless functions handling Connect API calls and events
-- **DynamoDB**: Connection tracking for WebSocket sessions
-- **Amazon Connect**: Contact center service for chat and voice
+### High-Level Components
+
+- **Customer Website**: Professional Hyundai-inspired automotive website with integrated support widget
+- **Agent Application**: Dedicated contact center interface with Amazon Connect CCP integration
+- **Support Widget**: Multi-modal interaction widget supporting chat-only, voice+chat, and escalation modes
+- **API Gateway**: REST API for contact creation and WebSocket API for real-time communication
+- **Lambda Functions**: 
+  - Contact Creation Lambda: Handles chat and voice contact creation
+  - WebSocket Lambda: Manages WebSocket connections with UserId-based registration
+  - Event Processing Lambda: Processes Connect contact events and enables escalation
+  - Chat Routing Lambda: Routes escalated contacts to maintain agent continuity
+- **DynamoDB**: Connection tracking with UserId-based indexing for efficient lookup
+- **Amazon Connect**: Contact center service managing chat and voice interactions
+- **EventBridge**: Contact event routing for real-time notifications
+
+### Interaction Modes
+
+1. **Chat-Only Mode**: Text-based customer support without voice capabilities
+2. **Voice+Chat Mode**: Combined voice and chat interaction (original functionality)
+3. **Escalation Mode**: Seamless transition from chat-only to voice+chat with agent continuity
+
+### Key Features
+
+- **UserId-Based WebSocket Management**: Persistent user identity across multiple contact types
+- **Agent Continuity**: Escalated voice contacts route to the same agent handling the chat
+- **Auto-Accept Logic**: Automatic acceptance of related chat contacts in agent application
+- **Professional UI**: Production-ready customer website and agent interface
+- **Comprehensive Error Handling**: Graceful degradation and recovery mechanisms
 
 ### Deployment Architecture Changes
 
@@ -259,13 +336,41 @@ If you have an existing deployment:
 - Verify files were deployed to S3
 - Check browser console for errors
 
-## Next Steps
+## System Status
 
-1. Implement chat functionality (Task 6)
-2. Implement voice functionality (Task 8)
-3. Add end-to-end testing
-4. Configure custom domain (optional)
+### Completed Features ✅
+- Professional customer website with Hyundai-inspired design
+- Support widget with chat and voice capabilities
+- Separate agent application with CCP integration
+- Chat-only interaction mode
+- Chat-to-voice escalation functionality
+- UserId-based WebSocket optimization
+- Auto-accept logic for related contacts
+- Comprehensive error handling
+- Production deployment infrastructure
+
+### Available Interaction Flows
+1. **Chat-Only**: Customer selects "Start Chat" → Chat interface → Optional escalation to voice
+2. **Voice+Chat**: Customer selects "Start Call" → Combined voice and chat interface
+3. **Escalation**: Chat-only → "Escalate to Voice" → Combined interface with same agent
+
+## Documentation
+
+- **[Comprehensive Design Document](COMPREHENSIVE_DESIGN.md)**: Complete system architecture and design
+- **[Feature Specifications](.kiro/specs/)**: Individual feature requirements and designs
+  - [Chat-Only Interaction](.kiro/specs/chat-only-interaction/)
+  - [Chat-to-Voice Escalation](.kiro/specs/chat-to-voice-escalation/)
+  - [Multi-Modal Demo Base](.kiro/specs/connect-multimodal-demo/)
+  - [WebSocket UserId Optimization](.kiro/specs/websocket-userid-optimization/)
+
+## Testing
+
+The system includes comprehensive testing:
+- **Unit Tests**: Component-level functionality verification
+- **Property-Based Tests**: Universal properties using fast-check library
+- **Integration Tests**: End-to-end interaction flows
+- **Performance Tests**: Load testing and scalability validation
 
 ## License
 
-This is a demo application for educational purposes.
+This is a production-ready customer interaction platform for educational and demonstration purposes.
